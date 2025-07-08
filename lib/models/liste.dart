@@ -4,7 +4,7 @@ import 'tag.dart';
 /// Modèle représentant une liste (ex: Semaine 25)
 class Liste {
   final String id;
-  final String brancheId;
+  final String superlisteId;
   final String titre;
   final DateTime date;
   final bool fermee;
@@ -12,7 +12,7 @@ class Liste {
 
   Liste({
     required this.id,
-    required this.brancheId,
+    required this.superlisteId,
     required this.titre,
     required this.date,
     required this.fermee,
@@ -21,7 +21,7 @@ class Liste {
 
   factory Liste.fromMap(String id, Map<String, dynamic> data) => Liste(
         id: id,
-        brancheId: data['brancheId'] ?? '',
+        superlisteId: data['superlisteId'] ?? '',
         titre: data['titre'] ?? '',
         date: (data['date'] as Timestamp).toDate(),
         fermee: data['fermee'] ?? false,
@@ -31,7 +31,7 @@ class Liste {
       );
 
   Map<String, dynamic> toMap() => {
-        'brancheId': brancheId,
+        'superlisteId': superlisteId,
         'titre': titre,
         'date': Timestamp.fromDate(date),
         'fermee': fermee,

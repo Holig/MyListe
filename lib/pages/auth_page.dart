@@ -6,8 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'dart:ui_web' as ui;
 import 'dart:html' as html;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:js/js_util.dart' as js_util;
-import 'dart:async';
 import 'package:go_router/go_router.dart';
 
 // StateProvider pour gérer l'état de chargement
@@ -24,107 +22,68 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      // ignore: undefined_prefixed_name
-      ui.platformViewRegistry.registerViewFactory(
-        'google-signin-button',
-        (int viewId) {
-          final div = html.DivElement();
-          div.id = 'g_id_onload';
-          div.setAttribute('data-client_id', '400867505180-04v417e92s2jl4qrcqb58pgu726qvv0j.apps.googleusercontent.com');
-          div.setAttribute('data-context', 'signin');
-          div.setAttribute('data-ux_mode', 'popup');
-          div.setAttribute('data-callback', 'onGoogleSignIn');
-          div.setAttribute('data-auto_prompt', 'false');
-          final button = html.Element.tag('div');
-          button.id = 'g_id_signin';
-          button.setAttribute('data-type', 'standard');
-          button.setAttribute('data-shape', 'rectangular');
-          button.setAttribute('data-theme', 'outline');
-          button.setAttribute('data-text', 'signin_with');
-          button.setAttribute('data-size', 'large');
-          button.setAttribute('data-logo_alignment', 'left');
-          div.append(button);
-          return div;
-        },
-      );
+      // Écouter les messages de Google Sign-In
       html.window.onMessage.listen((event) async {
         final credential = event.data;
         if (credential != null && credential is String && credential.length > 100) {
           try {
             final firebaseCredential = GoogleAuthProvider.credential(idToken: credential);
             await FirebaseAuth.instance.signInWithCredential(firebaseCredential);
-            // Afficher un message de succès ou naviguer
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur Google/Firebase: $e'), backgroundColor: Colors.red),
-            );
+            if (mounted) {
+              String errorMessage = e.toString();
+              if (errorMessage.startsWith('Exception: ')) {
+                errorMessage = errorMessage.substring(11);
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+              );
+            }
           }
         }
       });
     }
   }
 
-  Widget _buildGoogleWebButton(BuildContext context, WidgetRef ref) {
-    // Supprime l'ancien bouton s'il existe
-    final oldButton = html.document.getElementById('g_id_signin');
-    if (oldButton != null) {
-      oldButton.remove();
+  Widget _buildGoogleButton(BuildContext context, WidgetRef ref) {
+    if (kIsWeb) {
+      return _buildGoogleWebButton(context);
+    } else {
+      return _buildGoogleMobileButton(context, ref);
     }
-    // Enregistre le viewType à chaque build
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(
-      'google-signin-button',
-      (int viewId) {
-        final div = html.DivElement();
-        div.id = 'g_id_onload';
-        div.setAttribute('data-client_id', '400867505180-04v417e92s2jl4qrcqb58pgu726qvv0j.apps.googleusercontent.com');
-        div.setAttribute('data-context', 'signin');
-        div.setAttribute('data-ux_mode', 'popup');
-        div.setAttribute('data-callback', 'onGoogleSignIn');
-        div.setAttribute('data-auto_prompt', 'false');
-        final button = html.Element.tag('div');
-        button.id = 'g_id_signin';
-        button.setAttribute('data-type', 'standard');
-        button.setAttribute('data-shape', 'rectangular');
-        button.setAttribute('data-theme', 'outline');
-        button.setAttribute('data-text', 'signin_with');
-        button.setAttribute('data-size', 'large');
-        button.setAttribute('data-logo_alignment', 'left');
-        div.append(button);
-        // Timer pour attendre que le script Google soit prêt
-        Timer.periodic(const Duration(milliseconds: 100), (timer) {
-          final google = js_util.getProperty(html.window, 'google');
-          if (google != null &&
-              js_util.hasProperty(google, 'accounts') &&
-              js_util.hasProperty(js_util.getProperty(google, 'accounts'), 'id')) {
-            js_util.callMethod(
-              js_util.getProperty(js_util.getProperty(google, 'accounts'), 'id'),
-              'renderButton',
-              [
-                button,
-                {
-                  'type': 'standard',
-                  'theme': 'outline',
-                  'size': 'large',
-                  'width': 240,
-                },
-              ],
-            );
-            timer.cancel();
-          }
-        });
-        return div;
-      },
-    );
-    return const SizedBox(
+  }
+
+  Widget _buildGoogleWebButton(BuildContext context) {
+    return SizedBox(
       width: 240,
       height: 48,
-      child: HtmlElementView(viewType: 'google-signin-button'),
+      child: HtmlElementView(
+        viewType: 'google-signin-button',
+        onPlatformViewCreated: (int id) {
+          // Le bouton est créé, on peut maintenant le configurer
+          Future.delayed(const Duration(milliseconds: 100), () {
+            final button = html.document.getElementById('g_id_signin');
+            if (button != null) {
+              // Configuration du bouton Google
+              button.setAttribute('data-client_id', '400867505180-04v417e92s2jl4qrcqb58pgu726qvv0j.apps.googleusercontent.com');
+              button.setAttribute('data-context', 'signin');
+              button.setAttribute('data-ux_mode', 'popup');
+              button.setAttribute('data-callback', 'onGoogleSignIn');
+              button.setAttribute('data-auto_prompt', 'false');
+              button.setAttribute('data-type', 'standard');
+              button.setAttribute('data-shape', 'rectangular');
+              button.setAttribute('data-theme', 'outline');
+              button.setAttribute('data-text', 'signin_with');
+              button.setAttribute('data-size', 'large');
+              button.setAttribute('data-logo_alignment', 'left');
+            }
+          });
+        },
+      ),
     );
   }
 
-  Widget _buildGoogleButton(BuildContext context, WidgetRef ref) {
-    // Ton bouton Google classique pour mobile
+  Widget _buildGoogleMobileButton(BuildContext context, WidgetRef ref) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -134,9 +93,15 @@ class _AuthPageState extends ConsumerState<AuthPage> {
           try {
             await ref.read(authServiceProvider).signInWithGoogle();
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur Google: $e'), backgroundColor: Colors.red),
-            );
+            if (context.mounted) {
+              String errorMessage = e.toString();
+              if (errorMessage.startsWith('Exception: ')) {
+                errorMessage = errorMessage.substring(11);
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+              );
+            }
           }
         },
       ),
@@ -167,19 +132,24 @@ class _AuthPageState extends ConsumerState<AuthPage> {
           final authService = ref.read(authServiceProvider);
           if (isLogin) {
             await authService.signInWithEmailAndPassword(
-              emailController.text,
+              emailController.text.trim(),
               passwordController.text,
             );
           } else {
             await authService.createUserWithEmailAndPassword(
-              emailController.text,
+              emailController.text.trim(),
               passwordController.text,
             );
           }
           // La navigation se fera via le Stream authStateChanges
         } catch (e) {
           if (!context.mounted) return;
-          showErrorSnackBar(e.toString());
+          // Extraire le message d'erreur proprement
+          String errorMessage = e.toString();
+          if (errorMessage.startsWith('Exception: ')) {
+            errorMessage = errorMessage.substring(11);
+          }
+          showErrorSnackBar(errorMessage);
         } finally {
           if (context.mounted) {
             ref.read(authLoadingProvider.notifier).state = false;
@@ -226,7 +196,10 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (value == null || value.isEmpty || !value.contains('@')) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer votre adresse e-mail.';
+                    }
+                    if (!value.contains('@') || !value.contains('.')) {
                       return 'Veuillez entrer une adresse e-mail valide.';
                     }
                     return null;
@@ -242,8 +215,23 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                   ),
                   obscureText: true,
                   validator: (value) {
-                    if (value == null || value.isEmpty || value.length < 6) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer votre mot de passe.';
+                    }
+                    if (value.length < 6) {
                       return 'Le mot de passe doit contenir au moins 6 caractères.';
+                    }
+                    // Validation supplémentaire pour l'inscription
+                    if (!isLogin) {
+                      if (value.length < 8) {
+                        return 'Le mot de passe doit contenir au moins 8 caractères.';
+                      }
+                      if (!value.contains(RegExp(r'[A-Z]'))) {
+                        return 'Le mot de passe doit contenir au moins une majuscule.';
+                      }
+                      if (!value.contains(RegExp(r'[0-9]'))) {
+                        return 'Le mot de passe doit contenir au moins un chiffre.';
+                      }
                     }
                     return null;
                   },
@@ -274,9 +262,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                 if (isLoading)
                   const SizedBox.shrink()
                 else
-                  kIsWeb
-                      ? const GoogleWebButton()
-                      : _buildGoogleButton(context, ref),
+                  Center(child: _buildGoogleButton(context, ref)),
                 TextButton(
                   onPressed: isLoading ? null : () {
                     ref.read(isLoginProvider.notifier).state = !isLogin;
@@ -297,67 +283,4 @@ class _AuthPageState extends ConsumerState<AuthPage> {
 }
 
 // StateProvider simple pour basculer entre Connexion et Inscription
-final isLoginProvider = StateProvider<bool>((ref) => true);
-
-class GoogleWebButton extends StatefulWidget {
-  const GoogleWebButton({super.key});
-  @override
-  State<GoogleWebButton> createState() => _GoogleWebButtonState();
-}
-
-class _GoogleWebButtonState extends State<GoogleWebButton> {
-  late final String viewType;
-
-  @override
-  void initState() {
-    super.initState();
-    viewType = 'google-signin-button-${DateTime.now().millisecondsSinceEpoch}';
-
-    // Supprime tous les anciens boutons Google du DOM
-    html.document.querySelectorAll('#g_id_signin').forEach((e) => e.remove());
-
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(
-      viewType,
-      (int viewId) {
-        final div = html.DivElement();
-        div.id = 'g_id_signin';
-        // On attend que le script soit chargé avant d'appeler renderButton
-        Future.delayed(const Duration(milliseconds: 200), () {
-          final google = js_util.getProperty(html.window, 'google');
-          if (google != null &&
-              js_util.hasProperty(google, 'accounts') &&
-              js_util.hasProperty(js_util.getProperty(google, 'accounts'), 'id')) {
-            js_util.callMethod(
-              js_util.getProperty(js_util.getProperty(google, 'accounts'), 'id'),
-              'renderButton',
-              [
-                div,
-                {
-                  'client_id': '400867505180-04v417ye92s2jl4qrcqb58gpu726qv0j.apps.googleusercontent.com',
-                  'callback': js_util.getProperty(html.window, 'onGoogleSignIn'),
-                  'type': 'standard',
-                  'theme': 'outline',
-                  'size': 'large',
-                  'width': 240,
-                  'shape': 'rectangular',
-                  'logo_alignment': 'left',
-                }
-              ],
-            );
-          }
-        });
-        return div;
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 240,
-      height: 48,
-      child: HtmlElementView(viewType: viewType),
-    );
-  }
-} 
+final isLoginProvider = StateProvider<bool>((ref) => true); 

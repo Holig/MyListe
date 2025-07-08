@@ -1,97 +1,156 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:my_liste/services/database_service.dart';
-import 'package:my_liste/models/branche.dart';
+import 'package:my_liste/models/superliste.dart';
 import 'package:my_liste/models/liste.dart';
-import 'package:intl/intl.dart';
 import 'package:my_liste/services/auth_service.dart';
+import 'package:my_liste/services/database_service.dart';
+import 'package:my_liste/pages/categories_page.dart';
+import 'package:intl/intl.dart';
 
-class BranchePage extends ConsumerWidget {
+class SuperlistePage extends ConsumerWidget {
   final String id;
-  const BranchePage({required this.id, super.key});
+  const SuperlistePage({required this.id, super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final brancheAsync = ref.watch(brancheProvider(id));
+    final superlisteAsync = ref.watch(superlisteProvider(id));
     final listesAsync = ref.watch(listesProvider(id));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go('/accueil');
-            }
-          },
+          onPressed: () => context.go('/accueil'),
         ),
-        title: brancheAsync.when(
-          loading: () => const Text('Chargement...'),
-          error: (_, __) => const Text('Erreur'),
-          data: (branche) => Text(branche?.nom ?? 'Branche'),
-        ),
+        title: const Text('Superliste'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Paramètres',
+            icon: const Icon(Icons.category),
+            tooltip: 'Gérer les catégories',
             onPressed: () {
-              // TODO: Naviguer vers les paramètres de la branche
+              _showCategoriesDialog(context, ref);
             },
           ),
         ],
       ),
-      body: listesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Erreur: $err')),
-        data: (listes) {
-          final listesActives = listes.where((liste) => !liste.fermee).toList();
-          final listesFermees = listes.where((liste) => liste.fermee).toList();
-
-          return Column(
-            children: [
-              // Section des listes actives
-              Expanded(
-                flex: 2,
-                child: _buildListesSection(
-                  context,
-                  ref,
-                  'Listes actives',
-                  listesActives,
-                  false,
-                ),
-      ),
-              
-              // Séparateur
-              if (listesFermees.isNotEmpty)
-                Container(
-                  height: 1,
-                  color: Colors.grey[300],
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-              
-              // Section des listes fermées
-              if (listesFermees.isNotEmpty)
-                Expanded(
-                  flex: 1,
-                  child: _buildListesSection(
-                    context,
-                    ref,
-                    'Listes fermées',
-                    listesFermees,
-                    true,
+      body: Column(
+        children: [
+          // Sous-AppBar pour afficher le nom de la superliste
+          superlisteAsync.when(
+            loading: () => Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Theme.of(context).colorScheme.surface : Colors.grey[100],
+                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.list_alt, color: Colors.green),
+                  SizedBox(width: 8),
+                  Text('Chargement...'),
+                ],
+              ),
+            ),
+            error: (_, __) => Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                border: Border(bottom: BorderSide(color: Colors.red[300]!)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Erreur de chargement'),
+                ],
+              ),
+            ),
+            data: (superliste) => Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Theme.of(context).colorScheme.surface : Colors.grey[100],
+                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.list_alt, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Text(
+                    superliste?.nom ?? 'Superliste',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-            ],
-          );
-        },
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Créer une liste',
+                    onPressed: () => _showCreateListeDialog(context, ref),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Contenu des listes
+          Expanded(
+            child: listesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Erreur: $err')),
+              data: (listes) {
+                final listesActives = listes.where((liste) => !liste.fermee).toList();
+                final listesFermees = listes.where((liste) => liste.fermee).toList();
+
+                return Column(
+                  children: [
+                    // Section des listes actives
+                    Expanded(
+                      flex: 2,
+                      child: _buildListesSection(
+                        context,
+                        ref,
+                        'Listes actives',
+                        listesActives,
+                        false,
+                      ),
+                    ),
+                    
+                    // Séparateur
+                    if (listesFermees.isNotEmpty)
+                      Container(
+                        height: 1,
+                        color: Colors.grey[300],
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                    
+                    // Section des listes fermées
+                    if (listesFermees.isNotEmpty)
+                      Expanded(
+                        flex: 1,
+                        child: _buildListesSection(
+                          context,
+                          ref,
+                          'Listes fermées',
+                          listesFermees,
+                          true,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateListeDialog(context, ref),
-        child: const Icon(Icons.add),
-        tooltip: 'Créer une liste',
+    );
+  }
+
+  void _showCategoriesDialog(BuildContext context, WidgetRef ref) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CategoriesPage(superlisteId: id),
       ),
     );
   }
@@ -165,13 +224,14 @@ class BranchePage extends ConsumerWidget {
     final dateFormat = DateFormat('dd/MM/yyyy');
     final formattedDate = dateFormat.format(liste.date);
     final elementCount = liste.elements.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: isClosed ? Colors.grey[100] : null,
+      color: isDark ? Theme.of(context).colorScheme.surface : isClosed ? Colors.grey[100] : null,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isClosed ? Colors.grey[400] : Colors.green,
+          backgroundColor: isDark ? Theme.of(context).colorScheme.surface : isClosed ? Colors.grey[400] : Colors.green,
           child: Icon(
             isClosed ? Icons.archive : Icons.list_alt,
             color: Colors.white,
@@ -180,7 +240,7 @@ class BranchePage extends ConsumerWidget {
         title: Text(
           liste.titre,
           style: TextStyle(
-            color: isClosed ? Colors.grey[600] : null,
+            color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[600] : null,
             decoration: isClosed ? TextDecoration.lineThrough : null,
           ),
         ),
@@ -190,7 +250,7 @@ class BranchePage extends ConsumerWidget {
             Text(
               'Créée le $formattedDate',
               style: TextStyle(
-                color: isClosed ? Colors.grey[500] : Colors.grey[600],
+                color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[500] : Colors.grey[600],
                 fontSize: 12,
               ),
             ),
@@ -198,7 +258,7 @@ class BranchePage extends ConsumerWidget {
               Text(
                 '$elementCount élément${elementCount > 1 ? 's' : ''}',
                 style: TextStyle(
-                  color: isClosed ? Colors.grey[500] : Colors.grey[600],
+                  color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[500] : Colors.grey[600],
                   fontSize: 12,
                 ),
               ),
@@ -278,9 +338,11 @@ class BranchePage extends ConsumerWidget {
         title: const Text('Créer une nouvelle liste'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Titre de la liste',
             hintText: 'Ex: Courses semaine 25',
+            fillColor: Theme.of(context).colorScheme.surface,
+            filled: true,
           ),
           autofocus: true,
           onSubmitted: (value) {
@@ -310,8 +372,8 @@ class BranchePage extends ConsumerWidget {
   void _createListe(BuildContext context, WidgetRef ref, String titre) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user != null && user.familleId.isNotEmpty) {
-        await ref.read(databaseServiceProvider).createListe(user.familleId, id, titre);
+      if (user != null && user.familleActiveId.isNotEmpty) {
+        await ref.read(databaseServiceProvider).createListe(user.familleActiveId, id, titre);
         if (context.mounted) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -344,7 +406,7 @@ class BranchePage extends ConsumerWidget {
     String action,
   ) async {
     final user = ref.read(currentUserProvider).value;
-    if (user == null || user.familleId.isEmpty) {
+    if (user == null || user.familleActiveId.isEmpty) {
       _showSnackBar(context, 'Utilisateur non connecté ou sans famille', Colors.red);
       return;
     }
@@ -355,8 +417,8 @@ class BranchePage extends ConsumerWidget {
           break;
         case 'close':
           await ref.read(databaseServiceProvider).updateListeStatus(
-                user.familleId,
-                liste.brancheId,
+                user.familleActiveId,
+                liste.superlisteId,
                 liste.id,
                 true,
               );
@@ -364,8 +426,8 @@ class BranchePage extends ConsumerWidget {
           break;
         case 'reopen':
           await ref.read(databaseServiceProvider).updateListeStatus(
-                user.familleId,
-                liste.brancheId,
+                user.familleActiveId,
+                liste.superlisteId,
                 liste.id,
                 false,
               );
@@ -389,12 +451,12 @@ class BranchePage extends ConsumerWidget {
     Liste liste,
   ) async {
     final user = ref.read(currentUserProvider).value;
-    if (user == null || user.familleId.isEmpty) {
+    if (user == null || user.familleActiveId.isEmpty) {
       _showSnackBar(context, 'Utilisateur non connecté ou sans famille', Colors.red);
       return;
     }
     final newTitre = '${liste.titre} (copie)';
-    await ref.read(databaseServiceProvider).createListe(user.familleId, liste.brancheId, newTitre);
+    await ref.read(databaseServiceProvider).createListe(user.familleActiveId, liste.superlisteId, newTitre);
     _showSnackBar(context, 'Liste dupliquée avec succès !', Colors.blue);
   }
 
@@ -404,7 +466,7 @@ class BranchePage extends ConsumerWidget {
     Liste liste,
   ) async {
     final user = ref.read(currentUserProvider).value;
-    if (user == null || user.familleId.isEmpty) {
+    if (user == null || user.familleActiveId.isEmpty) {
       _showSnackBar(context, 'Utilisateur non connecté ou sans famille', Colors.red);
       return;
     }
@@ -429,7 +491,7 @@ class BranchePage extends ConsumerWidget {
       ),
     );
     if (confirmed == true) {
-      await ref.read(databaseServiceProvider).deleteListe(user.familleId, liste.brancheId, liste.id);
+      await ref.read(databaseServiceProvider).deleteListe(user.familleActiveId, liste.superlisteId, liste.id);
       _showSnackBar(context, 'Liste supprimée !', Colors.red);
     }
   }

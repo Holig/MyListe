@@ -32,17 +32,13 @@ Créer une application **Flutter/Dart** connectée à **Firebase** (auth, base d
 
 ---
 
-## 👨‍👩‍👧‍👦 Famille & Branches
+## ��‍👩‍👧‍👦 Famille & Superlistes
 
-### Famille
-
-- Groupe d’utilisateurs partageant leurs données
-
-### Branches (types de listes)
+### Superlistes (types de listes)
 
 - Exemples : Courses, Séries, Activités, To-do
-- Chaque branche contient ses **propres listes**
-- Accès direct depuis l’accueil à toutes les branches
+- Chaque superliste contient ses **propres listes**
+- Accès direct depuis l’accueil à toutes les superlistes
 
 ---
 
@@ -84,10 +80,10 @@ Créer une application **Flutter/Dart** connectée à **Firebase** (auth, base d
 ## 🧭 Navigation – Pages principales
 
 1. **Accueil**
-   - Liste des branches
-   - Bouton "Créer une branche"
+   - Liste des superlistes
+   - Bouton "Créer une superliste"
 
-2. **Page d’une branche**
+2. **Page d’une superliste**
    - Listes **actives** (en haut)
    - Listes **fermées** (en bas, grisé)
      - Réactivation = duplication avec date du jour
@@ -117,7 +113,7 @@ Créer une application **Flutter/Dart** connectée à **Firebase** (auth, base d
 
 ## 💡 Scénario utilisateur
 
-1. 👩 L’utilisateur A crée une branche "Courses" et une liste "Semaine 25"
+1. 👩 L’utilisateur A crée une superliste "Courses" et une liste "Semaine 25"
 2. 👨 L’utilisateur B ajoute des éléments à la liste
 3. 👦 L’utilisateur C utilise la liste en magasin :
    - ✅ Like les éléments trouvés
@@ -130,9 +126,9 @@ Créer une application **Flutter/Dart** connectée à **Firebase** (auth, base d
 
 - [ ] Authentification Firebase (Google + email)
 - [ ] Création / Rejoindre famille avec code ou QR
-- [ ] Page Accueil avec liste des branches
-- [ ] Création de branches
-- [ ] Page d’une branche : listes ouvertes / fermées
+- [ ] Page Accueil avec liste des superlistes
+- [ ] Création de superlistes
+- [ ] Page d’une superliste : listes ouvertes / fermées
 - [ ] Création de liste
 - [ ] Saisie d’éléments avec autocomplétion
 - [ ] Base de tags réutilisables

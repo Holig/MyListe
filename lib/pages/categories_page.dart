@@ -7,11 +7,12 @@ import 'package:my_liste/models/categorie.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class CategoriesPage extends ConsumerWidget {
-  const CategoriesPage({super.key});
+  final String superlisteId;
+  const CategoriesPage({required this.superlisteId, super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final categoriesAsync = ref.watch(categoriesProvider(superlisteId));
 
     return Scaffold(
       appBar: AppBar(
@@ -206,11 +207,11 @@ class CategoriesPage extends ConsumerWidget {
   void _addCategory(BuildContext context, WidgetRef ref, String nom) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user != null && user.familleId.isNotEmpty) {
-        final categories = ref.read(categoriesProvider).value ?? [];
+      if (user != null && user.familleActiveId.isNotEmpty) {
+        final categories = ref.read(categoriesProvider(superlisteId)).value ?? [];
         final newOrdre = categories.length;
         
-        await ref.read(databaseServiceProvider).createCategorie(user.familleId, nom, newOrdre);
+        await ref.read(databaseServiceProvider).createCategorie(user.familleActiveId, superlisteId, nom, newOrdre);
         
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -238,15 +239,15 @@ class CategoriesPage extends ConsumerWidget {
   void _updateCategory(BuildContext context, WidgetRef ref, Categorie categorie, String newNom) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user != null && user.familleId.isNotEmpty) {
+      if (user != null && user.familleActiveId.isNotEmpty) {
         final updatedCategorie = Categorie(
           id: categorie.id,
           nom: newNom,
           ordre: categorie.ordre,
-          commune: categorie.commune,
+          superlisteId: superlisteId,
         );
         
-        await ref.read(databaseServiceProvider).updateCategorie(user.familleId, updatedCategorie);
+        await ref.read(databaseServiceProvider).updateCategorie(user.familleActiveId, superlisteId, updatedCategorie);
         
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -296,8 +297,8 @@ class CategoriesPage extends ConsumerWidget {
     if (confirmed == true) {
       try {
         final user = ref.read(currentUserProvider).value;
-        if (user != null && user.familleId.isNotEmpty) {
-          await ref.read(databaseServiceProvider).deleteCategorie(user.familleId, categorie.id);
+        if (user != null && user.familleActiveId.isNotEmpty) {
+          await ref.read(databaseServiceProvider).deleteCategorie(user.familleActiveId, superlisteId, categorie.id);
           
           if (context.mounted) {
             Navigator.of(context).pop();
@@ -326,14 +327,14 @@ class CategoriesPage extends ConsumerWidget {
   void _reorderCategories(BuildContext context, WidgetRef ref, List<Categorie> categories, int oldIndex, int newIndex) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user != null && user.familleId.isNotEmpty) {
+      if (user != null && user.familleActiveId.isNotEmpty) {
         // Réorganiser la liste localement
         final reorderedCategories = List<Categorie>.from(categories);
         final item = reorderedCategories.removeAt(oldIndex);
         reorderedCategories.insert(newIndex, item);
 
         // Mettre à jour l'ordre dans Firestore
-        await ref.read(databaseServiceProvider).updateCategoriesOrder(user.familleId, reorderedCategories);
+        await ref.read(databaseServiceProvider).updateCategoriesOrder(user.familleActiveId, superlisteId, reorderedCategories);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

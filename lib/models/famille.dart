@@ -8,6 +8,8 @@ class Famille {
   final List<String> adminIds;
   final String codeInvitation;
   final DateTime dateCreation;
+  final String gradientColor1;
+  final String gradientColor2;
 
   Famille({
     required this.id,
@@ -16,6 +18,8 @@ class Famille {
     required this.adminIds,
     required this.codeInvitation,
     required this.dateCreation,
+    this.gradientColor1 = '#8e2de2',
+    this.gradientColor2 = '#4a00e0',
   });
 
   factory Famille.fromMap(String id, Map<String, dynamic> data) => Famille(
@@ -25,6 +29,8 @@ class Famille {
         adminIds: List<String>.from(data['adminIds'] ?? []),
         codeInvitation: data['codeInvitation'] ?? '',
         dateCreation: (data['dateCreation'] as Timestamp).toDate(),
+        gradientColor1: data['gradientColor1'] ?? '#8e2de2',
+        gradientColor2: data['gradientColor2'] ?? '#4a00e0',
       );
 
   Map<String, dynamic> toMap() => {
@@ -33,5 +39,7 @@ class Famille {
         'adminIds': adminIds,
         'codeInvitation': codeInvitation,
         'dateCreation': Timestamp.fromDate(dateCreation),
+        'gradientColor1': gradientColor1,
+        'gradientColor2': gradientColor2,
       };
 } 

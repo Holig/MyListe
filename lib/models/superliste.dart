@@ -1,20 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Modèle représentant une branche (type de liste, ex: Courses, Séries...)
-class Branche {
+/// Modèle représentant une superliste (type de listes)
+class Superliste {
   final String id;
   final String familleId;
   final String nom;
   final DateTime dateCreation;
 
-  Branche({
+  Superliste({
     required this.id,
     required this.familleId,
     required this.nom,
     required this.dateCreation,
   });
 
-  factory Branche.fromMap(String id, Map<String, dynamic> data) => Branche(
+  factory Superliste.fromMap(String id, Map<String, dynamic> data) => Superliste(
         id: id,
         familleId: data['familleId'] ?? '',
         nom: data['nom'] ?? '',

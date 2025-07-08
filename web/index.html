@@ -33,14 +33,32 @@
   <link rel="manifest" href="manifest.json">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    #g_id_onload, #g_id_signin {
-      min-width: 240px !important;
-      min-height: 48px !important;
+    #g_id_signin {
+      width: 240px !important;
+      height: 48px !important;
       display: block !important;
     }
-    #g_id_signin, #g_id_signin * {
+    #g_id_signin * {
       transition: none !important;
       animation: none !important;
+    }
+    /* Correction pour la hauteur du bouton Google */
+    .g_id_signin {
+      height: 48px !important;
+    }
+    .g_id_signin > div {
+      height: 48px !important;
+    }
+    .g_id_signin iframe {
+      height: 48px !important;
+    }
+    /* Styles supplémentaires pour s'assurer que le bouton s'affiche correctement */
+    .g_id_signin .g_id_signin_button {
+      height: 48px !important;
+      width: 240px !important;
+    }
+    .g_id_signin .g_id_signin_button_content {
+      height: 48px !important;
     }
   </style>
   <script>

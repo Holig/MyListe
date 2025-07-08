@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_liste/pages/creer_famille_page.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:my_liste/services/database_service.dart';
+import 'package:my_liste/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 
 class JoinOrCreateFamilyPage extends ConsumerWidget {
   const JoinOrCreateFamilyPage({super.key});
@@ -11,14 +15,11 @@ class JoinOrCreateFamilyPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rejoindre une famille'),
+        automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
               context.go('/accueil');
-            }
           },
         ),
       ),
@@ -45,7 +46,10 @@ class JoinOrCreateFamilyPage extends ConsumerWidget {
               // Rejoindre une famille
               ElevatedButton.icon(
                 onPressed: () {
-                  // TODO: Afficher une modale pour entrer le code
+                  showDialog(
+                    context: context,
+                    builder: (context) => _JoinFamilyDialog(ref: ref),
+                  );
                 },
                 icon: const Icon(Icons.group_add),
                 label: const Text('Rejoindre une famille'),
@@ -86,6 +90,147 @@ class JoinOrCreateFamilyPage extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _JoinFamilyDialog extends ConsumerStatefulWidget {
+  final WidgetRef ref;
+  const _JoinFamilyDialog({required this.ref});
+
+  @override
+  ConsumerState<_JoinFamilyDialog> createState() => _JoinFamilyDialogState();
+}
+
+class _JoinFamilyDialogState extends ConsumerState<_JoinFamilyDialog> {
+  final TextEditingController _codeController = TextEditingController();
+  String? _error;
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = Theme.of(context).platform == TargetPlatform.android ||
+        Theme.of(context).platform == TargetPlatform.iOS ||
+        (MediaQuery.of(context).size.width < 600);
+
+    return AlertDialog(
+      title: const Text('Rejoindre une famille'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _codeController,
+            decoration: const InputDecoration(
+              labelText: 'Code d\'invitation',
+              prefixIcon: Icon(Icons.vpn_key),
+            ),
+            textCapitalization: TextCapitalization.characters,
+            autofocus: true,
+          ),
+          const SizedBox(height: 12),
+          if (isMobile)
+            ElevatedButton.icon(
+              onPressed: _scanQrCode,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scanner un QR code'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: _loading ? null : _joinFamily,
+          child: _loading
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Valider'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _joinFamily() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final code = _codeController.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      setState(() {
+        _error = 'Veuillez entrer un code.';
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      final user = auth.FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Utilisateur non connecté');
+      await widget.ref.read(databaseServiceProvider).joinFamilyWithCode(code, user);
+      if (mounted) {
+        context.go('/accueil');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous avez rejoint la famille !'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString().replaceAll('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _scanQrCode() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const _QrScanPage()),
+    );
+    if (code != null && code.isNotEmpty) {
+      setState(() {
+        _codeController.text = code;
+      });
+    }
+  }
+}
+
+class _QrScanPage extends StatefulWidget {
+  const _QrScanPage();
+
+  @override
+  State<_QrScanPage> createState() => _QrScanPageState();
+}
+
+class _QrScanPageState extends State<_QrScanPage> {
+  bool _scanned = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scanner un QR code')),
+      body: MobileScanner(
+        onDetect: (capture) {
+          if (_scanned) return;
+          final List<Barcode> barcodes = capture.barcodes;
+          for (final barcode in barcodes) {
+            final String? code = barcode.rawValue;
+            if (code != null && code.isNotEmpty) {
+              setState(() => _scanned = true);
+              Navigator.of(context).pop(code);
+              break;
+            }
+          }
+        },
       ),
     );
   }

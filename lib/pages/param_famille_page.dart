@@ -6,6 +6,30 @@ import 'package:my_liste/services/auth_service.dart';
 import 'package:my_liste/pages/categories_page.dart';
 import 'package:my_liste/models/famille.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:my_liste/pages/gerer_membres_page.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
+
+// Ajout d'un provider pour forcer le rafraîchissement
+final settingsRefreshProvider = StateProvider<int>((ref) => 0);
+
+// Palette de dégradés par défaut
+const List<List<String>> defaultGradients = [
+  ['#8e2de2', '#4a00e0'], // Violet → Bleu
+  ['#ff9966', '#ff5e62'], // Orange → Jaune
+  ['#11998e', '#38ef7d'], // Vert → Turquoise
+  ['#f953c6', '#b91d73'], // Rose → Rouge
+  ['#43cea2', '#185a9d'], // Bleu ciel → Bleu foncé
+];
+
+Color hexToColor(String hex) {
+  hex = hex.replaceAll('#', '');
+  if (hex.length == 6) hex = 'FF$hex';
+  return Color(int.parse(hex, radix: 16));
+}
 
 class ParamFamillePage extends ConsumerWidget {
   const ParamFamillePage({super.key});
@@ -14,6 +38,8 @@ class ParamFamillePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
     final familleAsync = ref.watch(familleProvider);
+    // Ajout : écoute du provider de refresh pour forcer le rebuild
+    ref.watch(settingsRefreshProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -33,219 +59,189 @@ class ParamFamillePage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Erreur: $err')),
         data: (user) {
-          if (user == null || user.familleId.isEmpty) {
-            return const Center(
-              child: Text('Aucune famille trouvée'),
+          if (user == null || user.famillesIds.isEmpty) {
+            return Center(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Créer une nouvelle famille'),
+                onPressed: () => context.push('/creer-famille'),
+              ),
             );
           }
 
-          return familleAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(child: Text('Erreur: $err')),
-            data: (famille) {
-              if (famille == null) {
-                return const Center(child: Text('Famille non trouvée'));
-              }
+          // Provider pour récupérer toutes les familles de l'utilisateur
+          final famillesFuture = Future.wait(user.famillesIds.map((familleId) =>
+            ref.read(databaseServiceProvider).getFamille(familleId).first
+          ));
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Informations de la famille
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Section Mes familles
+                FutureBuilder<List<Famille?>> (
+                  future: famillesFuture,
+                  builder: (context, snapshot) {
+                    final familles = snapshot.data?.where((f) => f != null).cast<Famille>().toList() ?? [];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Mes familles', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ...familles.map((fam) => fam.id == user.familleActiveId
+                          ? Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    hexToColor(fam.gradientColor1),
+                                    hexToColor(fam.gradientColor2),
+                                  ],
+                                ),
+                              ),
+                              child: ListTile(
+                                title: Text(fam.nom, style: const TextStyle(color: Colors.white)),
+                                subtitle: Text('${fam.membresIds.length} membre${fam.membresIds.length > 1 ? 's' : ''}', style: const TextStyle(color: Colors.white70)),
+                                leading: const Icon(Icons.check_circle, color: Colors.white),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.white),
+                                  tooltip: 'Personnaliser le dégradé',
+                                  onPressed: () async {
+                                    await showDialog(
+                                      context: context,
+                                      builder: (context) => _GradientPickerDialog(famille: fam, ref: ref),
+                                    );
+                                    ref.read(settingsRefreshProvider.notifier).state++;
+                                  },
+                                ),
+                              ),
+                            )
+                          : Card(
+                              child: ListTile(
+                                title: Text(fam.nom),
+                                subtitle: Text('${fam.membresIds.length} membre${fam.membresIds.length > 1 ? 's' : ''}'),
+                                leading: const Icon(Icons.group),
+                                trailing: fam.id != user.familleActiveId
+                                  ? IconButton(
+                                      icon: const Icon(Icons.visibility),
+                                      tooltip: 'Afficher cette famille',
+                                      onPressed: () async {
+                                        await ref.read(databaseServiceProvider).setActiveFamily(fam.id, auth.FirebaseAuth.instance.currentUser!);
+                                        ref.read(settingsRefreshProvider.notifier).state++;
+                                      },
+                                    )
+                                  : null,
+                              ),
+                            )
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
                           children: [
-                            Text(
-                              'Famille: ${famille.nom}',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: const Text('Créer une famille'),
+                              onPressed: () => context.push('/creer-famille'),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Créée le ${_formatDate(famille.dateCreation)}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${famille.membresIds.length} membre${famille.membresIds.length > 1 ? 's' : ''}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                              ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.group_add),
+                              label: const Text('Rejoindre une famille'),
+                              onPressed: () => context.push('/rejoindre-famille'),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Code d'invitation
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Code d\'invitation',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[300]!),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      famille.codeInvitation.isNotEmpty 
-                                          ? famille.codeInvitation 
-                                          : 'Génération...',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.bold,
+                        const Divider(height: 32),
+                        // Ajout du widget Gestion de la famille pour la famille active
+                        if (user.familleActiveId.isNotEmpty)
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final familleAsync = ref.watch(familleProvider);
+                              return familleAsync.when(
+                                loading: () => const Center(child: CircularProgressIndicator()),
+                                error: (err, stack) => Center(child: Text('Erreur: $err')),
+                                data: (famille) {
+                                  if (famille == null) {
+                                    return const Center(child: Text('Famille non trouvée'));
+                                  }
+                                  final invitationLink = famille.codeInvitation.isNotEmpty
+                                    ? _getJoinFamilyUrl(famille.codeInvitation)
+                                    : '';
+                                  return Card(
+                                    margin: const EdgeInsets.only(top: 16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Titre dynamique pour la gestion de la famille
+                                          Text('Gestion de la famille ${famille.nom}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              ElevatedButton.icon(
+                                                icon: const Icon(Icons.refresh),
+                                                label: const Text('Générer un code'),
+                                                onPressed: () => _generateCode(context, ref, famille.id),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              if (invitationLink.isNotEmpty)
+                                                OutlinedButton.icon(
+                                                  icon: const Icon(Icons.copy),
+                                                  label: const Text('Copier le lien'),
+                                                  onPressed: () => _copyToClipboard(context, invitationLink),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          if (invitationLink.isNotEmpty)
+                                            Row(
+                                              children: [
+                                                QrImageView(
+                                                  data: invitationLink,
+                                                  version: QrVersions.auto,
+                                                  size: 100.0,
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      SelectableText(invitationLink, style: const TextStyle(fontSize: 14)),
+                                                      const SizedBox(height: 8),
+                                                      OutlinedButton.icon(
+                                                        icon: const Icon(Icons.share),
+                                                        label: const Text('Partager le lien'),
+                                                        onPressed: () async {
+                                                          await Share.share(invitationLink);
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton.icon(
+                                            icon: const Icon(Icons.group),
+                                            label: const Text('Gérer les membres'),
+                                            onPressed: () => context.push('/gerer-membres'),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () => _copyToClipboard(context, famille.codeInvitation),
-                                    icon: const Icon(Icons.copy),
-                                    tooltip: 'Copier le code',
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Partagez ce code avec les membres de votre famille pour qu\'ils puissent rejoindre.',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // QR Code
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'QR Code de partage',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey[300]!),
-                                ),
-                                child: QrImageView(
-                                  data: famille.codeInvitation.isNotEmpty 
-                                      ? famille.codeInvitation 
-                                      : 'placeholder',
-                                  version: QrVersions.auto,
-                                  size: 200.0,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Scannez ce QR code pour rejoindre rapidement la famille.',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Actions
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Actions',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ListTile(
-                              leading: const Icon(Icons.people),
-                              title: const Text('Gérer les membres'),
-                              subtitle: const Text('Ajouter ou supprimer des membres'),
-                              onTap: () {
-                                // TODO: Naviguer vers la gestion des membres
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.category),
-                              title: const Text('Gérer les catégories'),
-                              subtitle: const Text('Organiser vos listes'),
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => const CategoriesPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.settings),
-                              title: const Text('Paramètres avancés'),
-                              subtitle: const Text('Configuration de la famille'),
-                              onTap: () {
-                                // TODO: Naviguer vers les paramètres avancés
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                      ],
+                    );
+                  },
                 ),
-              );
-            },
+              ],
+            ),
           );
         },
       ),
@@ -257,7 +253,7 @@ class ParamFamillePage extends ConsumerWidget {
   }
 
   void _copyToClipboard(BuildContext context, String text) {
-    // TODO: Implémenter la copie dans le presse-papiers
+    Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Code copié dans le presse-papiers !'),
@@ -265,13 +261,100 @@ class ParamFamillePage extends ConsumerWidget {
       ),
     );
   }
+
+  void _generateCode(BuildContext context, WidgetRef ref, String familleId) async {
+    try {
+      await ref.read(databaseServiceProvider).generateInvitationCode(familleId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Code d\'invitation généré avec succès !'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la génération: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Ajout de la fonction utilitaire pour générer le lien dynamiquement
+  String _getJoinFamilyUrl(String code) {
+    if (kIsWeb) {
+      final origin = html.window.location.origin;
+      return '${origin}/join?family=${code}';
+    } else {
+      // Pour mobile, adapter selon le schéma de deep link
+      return 'my_liste://join?family=${code}';
+    }
+  }
 }
 
 // Provider pour récupérer la famille de l'utilisateur actuel
 final familleProvider = StreamProvider<Famille?>((ref) {
   final user = ref.watch(currentUserProvider).value;
-  if (user != null && user.familleId.isNotEmpty) {
-    return ref.watch(databaseServiceProvider).getFamille(user.familleId);
+  if (user != null && user.familleActiveId.isNotEmpty) {
+    return ref.watch(databaseServiceProvider).getFamille(user.familleActiveId);
   }
   return Stream.value(null);
-}); 
+});
+
+// Ajout du widget de sélection de dégradé
+class _GradientPickerDialog extends StatelessWidget {
+  final Famille famille;
+  final WidgetRef ref;
+  const _GradientPickerDialog({required this.famille, required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choisir un dégradé'),
+      content: SizedBox(
+        width: 300,
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            ...defaultGradients.map((g) => GestureDetector(
+              onTap: () async {
+                await ref.read(databaseServiceProvider).updateFamilyGradient(
+                  famille.id, g[0], g[1],
+                );
+                Navigator.of(context).pop();
+              },
+              child: Container(
+                width: 80,
+                height: 50,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [hexToColor(g[0]), hexToColor(g[1])],
+                  ),
+                  border: Border.all(
+                    color: famille.gradientColor1 == g[0] && famille.gradientColor2 == g[1]
+                        ? Colors.black
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+            )),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+      ],
+    );
+  }
+} 

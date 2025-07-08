@@ -4,123 +4,298 @@ import 'package:go_router/go_router.dart';
 import 'package:my_liste/services/auth_service.dart';
 import 'package:my_liste/services/database_service.dart';
 import 'package:my_liste/pages/categories_page.dart';
+import 'package:my_liste/pages/param_famille_page.dart';
+import 'package:my_liste/pages/contact_page.dart';
+import 'package:my_liste/pages/a_propos_page.dart';
+import 'package:my_liste/models/famille.dart';
+import 'package:my_liste/main.dart' show themeModeProvider;
 
-class AccueilPage extends ConsumerWidget {
+class AccueilPage extends ConsumerStatefulWidget {
   const AccueilPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final branchesAsync = ref.watch(branchesProvider);
+  ConsumerState<AccueilPage> createState() => _AccueilPageState();
+}
 
+final tabIndexProvider = StateProvider<int>((ref) => 0);
+
+class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialIndex = ref.read(tabIndexProvider);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: initialIndex);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging || _tabController.index != ref.read(tabIndexProvider)) {
+        ref.read(tabIndexProvider.notifier).state = _tabController.index;
+      }
+      setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AccueilPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final wantedIndex = ref.read(tabIndexProvider);
+    if (_tabController.index != wantedIndex) {
+      _tabController.index = wantedIndex;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = ref.watch(tabIndexProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mes types de listes'),
+        title: const Text('MyListe'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Se déconnecter',
-            onPressed: () => _handleLogout(context, ref),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) => _handleMenuAction(context, ref, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'categories',
+          Consumer(
+            builder: (context, ref, _) {
+              final user = ref.watch(currentUserProvider).value;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              if (user == null) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.15) : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: isDark ? Colors.white24 : Colors.grey[400]!),
+                ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.category),
-                    SizedBox(width: 8),
-                    Text('Gérer les catégories'),
+                    Icon(Icons.account_circle, color: isDark ? Colors.white : Colors.black87, size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      user.email,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton(
+                      icon: Icon(Icons.logout, color: isDark ? Colors.white : Colors.black87),
+                      tooltip: 'Se déconnecter',
+                      onPressed: () => _handleLogout(context, ref),
+                    ),
                   ],
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings),
-                    SizedBox(width: 8),
-                    Text('Paramètres famille'),
-                  ],
+              );
+            },
+          ),
+          Consumer(
+            builder: (context, ref, _) {
+              final themeMode = ref.watch(themeModeProvider);
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              return IconButton(
+                icon: Icon(
+                  isDark ? Icons.wb_sunny : Icons.nightlight_round,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                tooltip: isDark ? 'Mode clair' : 'Mode sombre',
+                onPressed: () {
+                  ref.read(themeModeProvider.notifier).state =
+                    isDark ? ThemeMode.light : ThemeMode.dark;
+                },
+              );
+            },
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.list_alt),
+              text: 'Superlistes',
+            ),
+            Tab(
+              icon: Icon(Icons.family_restroom),
+              text: 'Paramètres Familles',
+            ),
+            Tab(
+              icon: Icon(Icons.contact_support),
+              text: 'Contact',
+            ),
+            Tab(
+              icon: Icon(Icons.info),
+              text: 'À propos',
+            ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          Consumer(
+            builder: (context, ref, _) {
+              final familleAsync = ref.watch(familleProvider);
+              return familleAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (err, stack) => const SizedBox.shrink(),
+                data: (famille) {
+                  if (famille == null) return const SizedBox.shrink();
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          hexToColor(famille.gradientColor1),
+                          hexToColor(famille.gradientColor2),
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      'Famille "${famille.nom}"',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildSuperlistesTab(),
+                _buildParametresFamillesTab(),
+                _buildContactTab(),
+                _buildAProposTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: currentIndex == 0 ? FloatingActionButton(
+        onPressed: () => _showCreateSuperlisteDialog(context, ref),
+        child: const Icon(Icons.add),
+        tooltip: 'Créer une superliste',
+      ) : null,
+    );
+  }
+
+  Widget _buildSuperlistesTab() {
+    final superlistesAsync = ref.watch(superlistesProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        // Sous-AppBar pour afficher le nom de la superliste actuelle
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Theme.of(context).colorScheme.surface : Colors.grey[100],
+            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.list_alt, color: Colors.green),
+              const SizedBox(width: 8),
+              const Text(
+                'Mes Superlistes',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-      body: branchesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Erreur: $err')),
-        data: (branches) {
-          if (branches.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_task_rounded, size: 80, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'Aucun type de liste pour le moment.',
-                      style: TextStyle(fontSize: 18),
-                      textAlign: TextAlign.center,
+        ),
+        // Contenu des superlistes
+        Expanded(
+          child: superlistesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Erreur: $err')),
+            data: (superlistes) {
+              if (superlistes.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_task_rounded, size: 80, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'Aucune superliste pour le moment.',
+                          style: TextStyle(fontSize: 18),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Cliquez sur le bouton + pour créer votre première superliste !',
+                          style: TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Cliquez sur le bouton + pour créer votre premier type de liste !',
-                      style: TextStyle(color: Colors.grey),
-                      textAlign: TextAlign.center,
+                  ),
+                );
+              }
+              return ListView.builder(
+                itemCount: superlistes.length,
+                itemBuilder: (context, index) {
+                  final superliste = superlistes[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.list_alt)),
+                      title: Text(superliste.nom),
+                      trailing: const Icon(Icons.arrow_forward_ios),
+                      onTap: () {
+                        context.go('/superliste/${superliste.id}');
+                      },
                     ),
-                  ],
-                ),
-              ),
-            );
-          }
-          return ListView.builder(
-            itemCount: branches.length,
-            itemBuilder: (context, index) {
-              final branche = branches[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.list_alt)),
-                  title: Text(branche.nom),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    context.go('/branche/${branche.id}');
-                  },
-                ),
+                  );
+                },
               );
             },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateBrancheDialog(context, ref),
-        child: const Icon(Icons.add),
-        tooltip: 'Créer un type de liste',
-      ),
+          ),
+        ),
+      ],
     );
   }
 
-  void _showCreateBrancheDialog(BuildContext context, WidgetRef ref) {
+  Widget _buildParametresFamillesTab() {
+    return const ParamFamillePage();
+  }
+
+  Widget _buildContactTab() {
+    return const ContactPage();
+  }
+
+  Widget _buildAProposTab() {
+    return const AProposPage();
+  }
+
+  void _showCreateSuperlisteDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Créer un nouveau type de liste'),
+        title: const Text('Créer une nouvelle superliste'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            labelText: 'Nom du type de liste',
+            labelText: 'Nom de la superliste',
             hintText: 'Ex: Courses, Séries, Activités',
           ),
           autofocus: true,
           onSubmitted: (value) {
             if (value.trim().isNotEmpty) {
-              _createBranche(context, ref, value.trim());
+              _createSuperliste(context, ref, value.trim());
             }
           },
         ),
@@ -132,7 +307,7 @@ class AccueilPage extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               if (controller.text.trim().isNotEmpty) {
-                _createBranche(context, ref, controller.text.trim());
+                _createSuperliste(context, ref, controller.text.trim());
               }
             },
             child: const Text('Créer'),
@@ -142,16 +317,16 @@ class AccueilPage extends ConsumerWidget {
     );
   }
 
-  void _createBranche(BuildContext context, WidgetRef ref, String nom) async {
+  void _createSuperliste(BuildContext context, WidgetRef ref, String nom) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user != null && user.familleId.isNotEmpty) {
-        await ref.read(databaseServiceProvider).createBranche(user.familleId, nom);
+      if (user != null && user.familleActiveId.isNotEmpty) {
+        await ref.read(databaseServiceProvider).createSuperliste(user.familleActiveId, nom);
         if (context.mounted) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-            content: Text('Type de liste "$nom" créé avec succès !'),
+            content: Text('Superliste "$nom" créée avec succès !'),
             backgroundColor: Colors.green,
           ),
           );
@@ -172,22 +347,13 @@ class AccueilPage extends ConsumerWidget {
     }
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String value) {
-    switch (value) {
-      case 'categories':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const CategoriesPage(),
-          ),
-        );
-        break;
-      case 'settings':
-        context.go('/famille');
-        break;
-    }
-  }
-
   void _handleLogout(BuildContext context, WidgetRef ref) async {
     await ref.read(authServiceProvider).signOut();
+  }
+
+  Color hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
   }
 } 

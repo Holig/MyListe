@@ -35,7 +35,9 @@ class _CreerFamillePageState extends ConsumerState<CreerFamillePage> {
       if (user != null) {
         try {
           await dbService.createFamily(_nomFamilleController.text.trim(), user);
-          // La redirection est gérée par AuthWrapper, donc pas besoin de Navigator.pop
+          if (mounted) {
+            context.go('/param-famille');
+          }
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

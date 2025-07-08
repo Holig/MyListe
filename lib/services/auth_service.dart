@@ -27,10 +27,31 @@ class AuthService {
       await _dbService.upsertUser(userCredential.user!);
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      // Gérer les erreurs spécifiques à Firebase (ex: user-not-found, wrong-password)
-      throw Exception("Erreur de connexion: ${e.message}");
+      // Gérer les erreurs spécifiques à Firebase
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'Aucun utilisateur trouvé avec cette adresse e-mail.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Mot de passe incorrect.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Adresse e-mail invalide.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Ce compte a été désactivé.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Trop de tentatives de connexion. Veuillez réessayer plus tard.';
+          break;
+        default:
+          errorMessage = 'Erreur de connexion: ${e.message}';
+      }
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception("Une erreur inconnue est survenue.");
+      print('Erreur d\'authentification: $e');
+      throw Exception("Une erreur inconnue est survenue lors de la connexion.");
     }
   }
 
@@ -41,10 +62,28 @@ class AuthService {
       await _dbService.upsertUser(userCredential.user!);
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      // Gérer les erreurs (ex: email-already-in-use)
-      throw Exception("Erreur d'inscription: ${e.message}");
+      // Gérer les erreurs spécifiques à Firebase
+      String errorMessage;
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'Cette adresse e-mail est déjà utilisée.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Adresse e-mail invalide.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Le mot de passe est trop faible.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'L\'inscription par e-mail n\'est pas activée.';
+          break;
+        default:
+          errorMessage = 'Erreur d\'inscription: ${e.message}';
+      }
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception("Une erreur inconnue est survenue.");
+      print('Erreur d\'inscription: $e');
+      throw Exception("Une erreur inconnue est survenue lors de l'inscription.");
     }
   }
 
@@ -66,8 +105,31 @@ class AuthService {
       final userCredential = await _auth.signInWithCredential(credential);
       await _dbService.upsertUser(userCredential.user!);
       return userCredential;
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          errorMessage = 'Un compte existe déjà avec cette adresse e-mail mais avec une méthode de connexion différente.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Les informations d\'identification Google sont invalides.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'La connexion avec Google n\'est pas activée.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Ce compte a été désactivé.';
+          break;
+        case 'user-not-found':
+          errorMessage = 'Aucun utilisateur trouvé avec ces informations d\'identification.';
+          break;
+        default:
+          errorMessage = 'Erreur de connexion avec Google: ${e.message}';
+      }
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception("Erreur de connexion avec Google.");
+      print('Erreur Google Sign-In: $e');
+      throw Exception("Erreur de connexion avec Google. Veuillez réessayer.");
     }
   }
 

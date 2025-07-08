@@ -9,19 +9,19 @@ import 'package:uuid/uuid.dart';
 import 'package:my_liste/services/auth_service.dart';
 
 class ListeDetailPage extends ConsumerWidget {
-  final String brancheId;
+  final String superlisteId;
   final String listeId;
-  
+
   const ListeDetailPage({
-    required this.brancheId,
+    required this.superlisteId,
     required this.listeId,
     super.key,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final listeAsync = ref.watch(listeProvider((brancheId, listeId)));
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final listeAsync = ref.watch(listeProvider((superlisteId, listeId)));
+    final categoriesAsync = ref.watch(categoriesProvider(superlisteId));
     final tagsAsync = ref.watch(tagsProvider);
 
     return Scaffold(
@@ -32,7 +32,7 @@ class ListeDetailPage extends ConsumerWidget {
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
             } else {
-              context.go('/branche/$brancheId');
+              context.go('/superliste/$superlisteId');
             }
           },
         ),
@@ -76,10 +76,10 @@ class ListeDetailPage extends ConsumerWidget {
 
   Widget _buildSearchBar(BuildContext context, WidgetRef ref, Liste liste) {
     final user = ref.read(currentUserProvider).value;
-    final familleId = user?.familleId ?? '';
-    final Future<List<Tag>> futureSuggestions =
+    final familleId = user?.familleActiveId ?? '';
+            final Future<List<Tag>> futureSuggestions =
         (familleId.isNotEmpty)
-            ? ref.read(databaseServiceProvider).getAllElementsOfBranche(familleId, brancheId)
+            ? ref.read(databaseServiceProvider).getAllElementsOfSuperliste(familleId, superlisteId)
             : Future.value([]);
 
     String? lastSelected;
@@ -184,7 +184,7 @@ class ListeDetailPage extends ConsumerWidget {
   }
 
   Widget _buildElementsList(BuildContext context, WidgetRef ref, Liste liste) {
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final categoriesAsync = ref.watch(categoriesProvider(superlisteId));
     
     return categoriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -336,7 +336,7 @@ class ListeDetailPage extends ConsumerWidget {
   void _addElement(BuildContext context, WidgetRef ref, Liste liste, String nom, [String? categorieId]) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user == null || user.familleId.isEmpty) {
+      if (user == null || user.familleActiveId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Utilisateur non connecté ou sans famille'), backgroundColor: Colors.red),
         );
@@ -349,8 +349,8 @@ class ListeDetailPage extends ConsumerWidget {
         categorieId: categorieId ?? '',
       );
       await ref.read(databaseServiceProvider).addElementToListe(
-        user.familleId,
-        brancheId,
+        user.familleActiveId,
+        superlisteId,
         listeId,
         newElement,
       );
@@ -373,7 +373,7 @@ class ListeDetailPage extends ConsumerWidget {
   void _toggleLike(BuildContext context, WidgetRef ref, Liste liste, Tag element) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user == null || user.familleId.isEmpty) {
+      if (user == null || user.familleActiveId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Utilisateur non connecté ou sans famille'), backgroundColor: Colors.red),
         );
@@ -387,8 +387,8 @@ class ListeDetailPage extends ConsumerWidget {
         dislike: false, // Désactiver dislike si on like
       );
       await ref.read(databaseServiceProvider).updateElementInListe(
-        user.familleId,
-        brancheId,
+        user.familleActiveId,
+        superlisteId,
         listeId,
         updatedElement,
       );
@@ -405,7 +405,7 @@ class ListeDetailPage extends ConsumerWidget {
   void _toggleDislike(BuildContext context, WidgetRef ref, Liste liste, Tag element) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user == null || user.familleId.isEmpty) {
+      if (user == null || user.familleActiveId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Utilisateur non connecté ou sans famille'), backgroundColor: Colors.red),
         );
@@ -419,8 +419,8 @@ class ListeDetailPage extends ConsumerWidget {
         dislike: !element.dislike,
       );
       await ref.read(databaseServiceProvider).updateElementInListe(
-        user.familleId,
-        brancheId,
+        user.familleActiveId,
+        superlisteId,
         listeId,
         updatedElement,
       );
@@ -458,7 +458,7 @@ class ListeDetailPage extends ConsumerWidget {
     Tag element,
   ) {
     final controller = TextEditingController(text: element.nom);
-    final categories = ref.read(categoriesProvider).value ?? [];
+    final categories = ref.read(categoriesProvider(superlisteId)).value ?? [];
     String selectedCategorieId = element.categorieId;
     showDialog(
       context: context,
@@ -529,7 +529,7 @@ class ListeDetailPage extends ConsumerWidget {
   ) async {
     try {
       final user = ref.read(currentUserProvider).value;
-      if (user == null || user.familleId.isEmpty) {
+      if (user == null || user.familleActiveId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Utilisateur non connecté ou sans famille'), backgroundColor: Colors.red),
         );
@@ -543,8 +543,8 @@ class ListeDetailPage extends ConsumerWidget {
         dislike: element.dislike,
       );
       await ref.read(databaseServiceProvider).updateElementInListe(
-        user.familleId,
-        brancheId,
+        user.familleActiveId,
+        superlisteId,
         listeId,
         updatedElement,
       );
@@ -568,7 +568,7 @@ class ListeDetailPage extends ConsumerWidget {
     Tag element,
   ) async {
     final user = ref.read(currentUserProvider).value;
-    if (user == null || user.familleId.isEmpty) {
+    if (user == null || user.familleActiveId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Utilisateur non connecté ou sans famille'), backgroundColor: Colors.red),
       );
@@ -597,8 +597,8 @@ class ListeDetailPage extends ConsumerWidget {
     if (confirmed == true) {
       try {
         await ref.read(databaseServiceProvider).removeElementFromListe(
-          user.familleId,
-          brancheId,
+          user.familleActiveId,
+          superlisteId,
           listeId,
           element.id,
         );
@@ -619,8 +619,8 @@ class ListeDetailPage extends ConsumerWidget {
 
 // Provider pour récupérer une liste spécifique
 final listeProvider = StreamProvider.family<Liste?, (String, String)>((ref, params) {
-  final (brancheId, listeId) = params;
+  final (superlisteId, listeId) = params;
   final user = ref.watch(currentUserProvider).value;
   if (user == null) return const Stream.empty();
-  return ref.watch(databaseServiceProvider).getListe(user.familleId, brancheId, listeId);
+  return ref.watch(databaseServiceProvider).getListe(user.familleActiveId, superlisteId, listeId);
 }); 

@@ -4,11 +4,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:go_router/go_router.dart';
 import 'firebase_options.dart'; // Décommenté
 import 'dart:async';
+import 'package:uni_links/uni_links.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:ui_web' as ui;
+import 'dart:html' as html;
 
 // Import des pages
 import 'pages/accueil_page.dart';
 import 'pages/auth_page.dart';
-import 'pages/branche_page.dart';
+import 'pages/superliste_page.dart';
 import 'pages/creer_famille_page.dart';
 import 'pages/param_famille_page.dart';
 import 'pages/contact_page.dart';
@@ -16,9 +21,25 @@ import 'pages/a_propos_page.dart';
 import 'pages/join_or_create_family_page.dart';
 import 'pages/liste_detail_page.dart';
 import 'services/auth_service.dart'; // Ajout de l'import manquant
+import 'pages/join_family_from_link_page.dart';
+import 'pages/gerer_membres_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Configuration du bouton Google Sign-In pour le web
+  if (kIsWeb) {
+    // ignore: undefined_prefixed_name
+    ui.platformViewRegistry.registerViewFactory(
+      'google-signin-button',
+      (int viewId) {
+        final div = html.DivElement();
+        div.id = 'g_id_signin';
+        return div;
+      },
+    );
+  }
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform, // Décommenté
   );
@@ -57,15 +78,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const JoinOrCreateFamilyPage(),
       ),
       GoRoute(
-        path: '/branche/:id',
-        name: 'branche',
-        builder: (context, state) => BranchePage(id: state.pathParameters['id']!),
+        path: '/superliste/:id',
+        name: 'superliste',
+        builder: (context, state) => SuperlistePage(id: state.pathParameters['id']!),
       ),
       GoRoute(
-        path: '/liste/:brancheId/:listeId',
+        path: '/liste/:superlisteId/:listeId',
         name: 'liste',
         builder: (context, state) => ListeDetailPage(
-          brancheId: state.pathParameters['brancheId']!,
+          superlisteId: state.pathParameters['superlisteId']!,
           listeId: state.pathParameters['listeId']!,
         ),
       ),
@@ -89,12 +110,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: 'a_propos',
         builder: (context, state) => const AProposPage(),
       ),
+      GoRoute(
+        path: '/join',
+        name: 'join_family_from_link',
+        builder: (context, state) => JoinFamilyFromLinkPage(
+          code: state.uri.queryParameters['family'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/gerer-membres',
+        name: 'gerer_membres',
+        builder: (context, state) => const GererMembresPage(),
+      ),
     ],
     redirect: (context, state) {
       final isLoggedIn = authState.valueOrNull != null;
       final loggingIn = state.matchedLocation == '/auth';
       final joiningFamily = state.matchedLocation == '/rejoindre-famille';
       final creatingFamily = state.matchedLocation == '/creer-famille';
+      final onSettings = state.matchedLocation == '/famille';
 
       // Si pas connecté, direction /auth
       if (!isLoggedIn) {
@@ -106,7 +140,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      final hasFamily = userProvider.value?.familleId.isNotEmpty ?? false;
+      final hasFamily = userProvider.value?.familleActiveId.isNotEmpty ?? false;
 
       // Si connecté et sur /auth, redirection
       if (loggingIn) {
@@ -117,10 +151,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (!hasFamily && !joiningFamily && !creatingFamily) {
         return '/rejoindre-famille';
       }
-      
-      // Si connecté avec famille et sur une page de "setup", redirection vers l'accueil
-      if (hasFamily && (joiningFamily || creatingFamily)) {
-        return '/accueil';
+
+      // Empêcher la redirection automatique vers /accueil si déjà sur /famille
+      if (onSettings) {
+        return null;
       }
 
       return null;
@@ -128,22 +162,75 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
+
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
-    return MaterialApp.router(
-      title: 'MyListe',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        // fontFamily: 'Poppins', // Commenté car les polices ne sont pas encore ajoutées
+    return DeepLinkListener(
+      child: MaterialApp.router(
+        title: 'MyListe',
+        theme: ThemeData(
+          primarySwatch: Colors.green,
+        ),
+        darkTheme: ThemeData.dark().copyWith(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.green, brightness: Brightness.dark),
+        ),
+        themeMode: themeMode,
+        routerConfig: router,
       ),
-      routerConfig: router,
     );
   }
+}
+
+class DeepLinkListener extends StatefulWidget {
+  final Widget child;
+  const DeepLinkListener({super.key, required this.child});
+
+  @override
+  State<DeepLinkListener> createState() => _DeepLinkListenerState();
+}
+
+class _DeepLinkListenerState extends State<DeepLinkListener> {
+  StreamSubscription? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (!kIsWeb) {
+      // Sur mobile, on écoute les liens dynamiques
+      _sub = uriLinkStream.listen((Uri? uri) {
+        if (uri != null && uri.path == '/join' && uri.queryParameters['family'] != null) {
+          final code = uri.queryParameters['family']!;
+          GoRouter.of(context).go('/join?family=$code');
+        }
+      });
+    } else {
+      // Sur web, on traite l'URL au chargement
+      final uri = Uri.base;
+      if (uri.path == '/join' && uri.queryParameters['family'] != null) {
+        final code = uri.queryParameters['family']!;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          GoRouter.of(context).go('/join?family=$code');
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 // Helper class pour GoRouter, maintenant capable de gérer plusieurs streams
