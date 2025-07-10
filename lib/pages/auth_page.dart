@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import 'package:flutter/foundation.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:ui_web' as ui;
-import 'dart:html' as html;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,96 +15,6 @@ class AuthPage extends ConsumerStatefulWidget {
 }
 
 class _AuthPageState extends ConsumerState<AuthPage> {
-  @override
-  void initState() {
-    super.initState();
-    if (kIsWeb) {
-      // Écouter les messages de Google Sign-In
-      html.window.onMessage.listen((event) async {
-        final credential = event.data;
-        if (credential != null && credential is String && credential.length > 100) {
-          try {
-            final firebaseCredential = GoogleAuthProvider.credential(idToken: credential);
-            await FirebaseAuth.instance.signInWithCredential(firebaseCredential);
-          } catch (e) {
-            if (mounted) {
-              String errorMessage = e.toString();
-              if (errorMessage.startsWith('Exception: ')) {
-                errorMessage = errorMessage.substring(11);
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-              );
-            }
-          }
-        }
-      });
-    }
-  }
-
-  Widget _buildGoogleButton(BuildContext context, WidgetRef ref) {
-    if (kIsWeb) {
-      return _buildGoogleWebButton(context);
-    } else {
-      return _buildGoogleMobileButton(context, ref);
-    }
-  }
-
-  Widget _buildGoogleWebButton(BuildContext context) {
-    return SizedBox(
-      width: 240,
-      height: 48,
-      child: HtmlElementView(
-        viewType: 'google-signin-button',
-        onPlatformViewCreated: (int id) {
-          // Le bouton est créé, on peut maintenant le configurer
-          Future.delayed(const Duration(milliseconds: 100), () {
-            final button = html.document.getElementById('g_id_signin');
-            if (button != null) {
-              // Configuration du bouton Google
-              button.setAttribute('data-client_id', '400867505180-04v417e92s2jl4qrcqb58pgu726qvv0j.apps.googleusercontent.com');
-              button.setAttribute('data-context', 'signin');
-              button.setAttribute('data-ux_mode', 'popup');
-              button.setAttribute('data-callback', 'onGoogleSignIn');
-              button.setAttribute('data-auto_prompt', 'false');
-              button.setAttribute('data-type', 'standard');
-              button.setAttribute('data-shape', 'rectangular');
-              button.setAttribute('data-theme', 'outline');
-              button.setAttribute('data-text', 'signin_with');
-              button.setAttribute('data-size', 'large');
-              button.setAttribute('data-logo_alignment', 'left');
-            }
-          });
-        },
-      ),
-    );
-  }
-
-  Widget _buildGoogleMobileButton(BuildContext context, WidgetRef ref) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        icon: const Icon(Icons.g_mobiledata),
-        label: const Text('Continuer avec Google'),
-        onPressed: () async {
-          try {
-            await ref.read(authServiceProvider).signInWithGoogle();
-          } catch (e) {
-            if (context.mounted) {
-              String errorMessage = e.toString();
-              if (errorMessage.startsWith('Exception: ')) {
-                errorMessage = errorMessage.substring(11);
-              }
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-            );
-            }
-          }
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final formKey = GlobalKey<FormState>();
@@ -156,6 +63,33 @@ class _AuthPageState extends ConsumerState<AuthPage> {
           }
         }
       }
+    }
+
+    Widget buildGoogleButton(BuildContext context, WidgetRef ref) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.g_mobiledata),
+          label: const Text('Continuer avec Google'),
+          onPressed: isLoading
+              ? null
+              : () async {
+                  try {
+                    await ref.read(authServiceProvider).signInWithGoogle();
+                  } catch (e) {
+                    if (context.mounted) {
+                      String errorMessage = e.toString();
+                      if (errorMessage.startsWith('Exception: ')) {
+                        errorMessage = errorMessage.substring(11);
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+        ),
+      );
     }
 
     return Scaffold(
@@ -262,7 +196,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                 if (isLoading)
                   const SizedBox.shrink()
                 else
-                  Center(child: _buildGoogleButton(context, ref)),
+                  Center(child: buildGoogleButton(context, ref)),
                 TextButton(
                   onPressed: isLoading ? null : () {
                     ref.read(isLoginProvider.notifier).state = !isLogin;
