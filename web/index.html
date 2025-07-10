@@ -31,42 +31,54 @@
 
   <title>my_liste</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- Google Sign-In API -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
   <style>
-    #g_id_signin {
+    /* Styles de base pour le bouton Google */
+    [id^="g_id_signin_"] {
       width: 240px !important;
       height: 48px !important;
       display: block !important;
     }
-    #g_id_signin * {
-      transition: none !important;
-      animation: none !important;
-    }
-    /* Correction pour la hauteur du bouton Google */
+    
+    /* Assurer que le bouton Google s'affiche correctement */
     .g_id_signin {
-      height: 48px !important;
-    }
-    .g_id_signin > div {
-      height: 48px !important;
-    }
-    .g_id_signin iframe {
-      height: 48px !important;
-    }
-    /* Styles supplémentaires pour s'assurer que le bouton s'affiche correctement */
-    .g_id_signin .g_id_signin_button {
       height: 48px !important;
       width: 240px !important;
     }
-    .g_id_signin .g_id_signin_button_content {
+    
+    .g_id_signin > div {
       height: 48px !important;
+      width: 240px !important;
+    }
+    
+    .g_id_signin iframe {
+      height: 48px !important;
+      width: 240px !important;
     }
   </style>
+  
   <script>
-    window.onGoogleSignIn = function(response) {
-      if (response.credential) {
+    // Fonction de callback pour Google Sign-In
+    function onGoogleSignIn(response) {
+      if (response && response.credential) {
         window.postMessage(response.credential, "*");
       }
     }
+    
+    // Initialisation de Google Sign-In
+    window.addEventListener('load', function() {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        // Configuration globale de Google Sign-In
+        window.google.accounts.id.initialize({
+          client_id: '4406014822-m7kn43efe9uj2gq60j9pdjags7m1ahc2.apps.googleusercontent.com',
+          callback: onGoogleSignIn,
+          ux_mode: 'popup'
+        });
+      }
+    });
   </script>
 </head>
 <body>

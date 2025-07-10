@@ -70,7 +70,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '4406014822',
     projectId: 'myliste-app',
     storageBucket: 'myliste-app.firebasestorage.app',
-    iosClientId: '400867505180-04v417e92s2jl4qrcqb58pgu726qvv0j.apps.googleusercontent.com',
+    iosClientId: '4406014822-m7kn43efe9uj2gq60j9pdjags7m1ahc2.apps.googleusercontent.com',
     iosBundleId: 'com.example.myListe',
   );
 

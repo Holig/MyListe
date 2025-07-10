@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
-import 'firebase_options.dart'; // Décommenté
 import 'dart:async';
 import 'package:uni_links/uni_links.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:ui_web' as ui;
 import 'dart:html' as html;
@@ -14,35 +15,48 @@ import 'dart:html' as html;
 import 'pages/accueil_page.dart';
 import 'pages/auth_page.dart';
 import 'pages/superliste_page.dart';
-import 'pages/creer_famille_page.dart';
 import 'pages/param_famille_page.dart';
 import 'pages/contact_page.dart';
 import 'pages/a_propos_page.dart';
-import 'pages/join_or_create_family_page.dart';
 import 'pages/liste_detail_page.dart';
-import 'services/auth_service.dart'; // Ajout de l'import manquant
+import 'pages/creer_famille_page.dart';
+import 'pages/join_or_create_family_page.dart';
 import 'pages/join_family_from_link_page.dart';
 import 'pages/gerer_membres_page.dart';
+import 'pages/categories_page.dart';
+
+// Import des services
+import 'services/auth_service.dart';
+import 'services/database_service.dart';
+
+// Import des modèles
+import 'models/utilisateur.dart';
+import 'models/famille.dart';
+import 'models/superliste.dart';
+import 'models/liste.dart';
+import 'models/categorie.dart';
+import 'models/tag.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Configuration du bouton Google Sign-In pour le web
-  if (kIsWeb) {
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(
-      'google-signin-button',
-      (int viewId) {
-        final div = html.DivElement();
-        div.id = 'g_id_signin';
-        return div;
-      },
-    );
-  }
-  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform, // Décommenté
   );
+
+  // Gestion des redirections Google Sign-In sur le web
+  if (kIsWeb) {
+    try {
+      final result = await FirebaseAuth.instance.getRedirectResult();
+      if (result != null) {
+        // L'utilisateur s'est connecté via Google Sign-In
+        print('Utilisateur connecté via Google: ${result.user?.email}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération du résultat de redirection: $e');
+    }
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 

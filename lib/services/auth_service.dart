@@ -91,29 +91,14 @@ class AuthService {
   Future<UserCredential> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // Sur le web, utiliser signInWithRedirect pour mobile, sinon signInWithPopup
-        final isMobile =
-            (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android);
-        if (isMobile) {
-          // Redirige l'utilisateur pour l'auth Google (plus fiable sur mobile web)
-          await _auth.signInWithRedirect(GoogleAuthProvider());
-          // La navigation se fera automatiquement après le retour
-          throw Exception('Veuillez finaliser la connexion Google dans la fenêtre ouverte.');
-        } else {
-          // Sur desktop web, on peut utiliser le flux GoogleSignIn classique
-          final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-          if (googleUser == null) {
-            throw Exception('Connexion avec Google annulée.');
-          }
-          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-          final AuthCredential credential = GoogleAuthProvider.credential(
-            accessToken: googleAuth.accessToken,
-            idToken: googleAuth.idToken,
-          );
-          final userCredential = await _auth.signInWithCredential(credential);
-          await _dbService.upsertUser(userCredential.user!);
-          return userCredential;
-        }
+        // Sur le web, utiliser le flux popup standard de Firebase
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        
+        final userCredential = await _auth.signInWithPopup(googleProvider);
+        await _dbService.upsertUser(userCredential.user!);
+        return userCredential;
       } else {
         // Mobile natif (Android/iOS)
         final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -147,8 +132,14 @@ class AuthService {
         case 'user-not-found':
           errorMessage = 'Aucun utilisateur trouvé avec ces informations d\'identification.';
           break;
+        case 'popup-closed-by-user':
+          errorMessage = 'La fenêtre de connexion Google a été fermée.';
+          break;
+        case 'popup-blocked':
+          errorMessage = 'La fenêtre de connexion Google a été bloquée par le navigateur.';
+          break;
         default:
-          errorMessage = 'Erreur de connexion avec Google:  [31m${e.message} [0m';
+          errorMessage = 'Erreur de connexion avec Google: ${e.message}';
       }
       throw Exception(errorMessage);
     } catch (e) {
@@ -173,7 +164,7 @@ final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instan
 final googleSignInProvider = Provider<GoogleSignIn>((ref) {
   if (kIsWeb) {
     return GoogleSignIn(
-      clientId: '400867505180-04v417e92s2jl4qrcqb58pgu726qvv0j.apps.googleusercontent.com',
+      clientId: '4406014822-m7kn43efe9uj2gq60j9pdjags7m1ahc2.apps.googleusercontent.com',
       // Ajoutez ici d'autres options si besoin
     );
   } else {
