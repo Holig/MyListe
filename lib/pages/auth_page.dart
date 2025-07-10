@@ -94,16 +94,6 @@ class _AuthPageState extends ConsumerState<AuthPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go('/accueil');
-            }
-          },
-        ),
         title: Text(isLogin ? 'Connexion' : 'Inscription'),
       ),
       body: Center(
@@ -115,12 +105,22 @@ class _AuthPageState extends ConsumerState<AuthPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  isLogin ? 'Bon retour !' : 'Créer un compte',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                  textAlign: TextAlign.center,
+                Column(
+                  children: [
+                    Text(
+                      'MyListe',
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Organisez vos listes en famille',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const SizedBox(height: 32),
                 TextFormField(
                   controller: emailController,
                   decoration: const InputDecoration(

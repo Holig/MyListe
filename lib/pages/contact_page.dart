@@ -29,16 +29,6 @@ class _ContactPageState extends ConsumerState<ContactPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Contact'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go('/accueil');
-            }
-          },
-        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

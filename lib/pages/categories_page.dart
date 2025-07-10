@@ -5,6 +5,7 @@ import 'package:my_liste/services/database_service.dart';
 import 'package:my_liste/services/auth_service.dart';
 import 'package:my_liste/models/categorie.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import '../models/historique_action.dart';
 
 class CategoriesPage extends ConsumerWidget {
   final String superlisteId;
@@ -267,6 +268,18 @@ class CategoriesPage extends ConsumerWidget {
         final newOrdre = categories.length;
         
         await ref.read(databaseServiceProvider).createCategorie(user.familleActiveId, superlisteId, nom, newOrdre);
+        // Historique ajout catégorie (collection dédiée)
+        await ref.read(databaseServiceProvider).addCategorieHistoriqueAction(
+          familleId: user.familleActiveId,
+          superlisteId: superlisteId,
+          action: HistoriqueAction(
+            id: '',
+            userId: user.email,
+            type: 'ajout_categorie',
+            elementNom: nom,
+            date: DateTime.now(),
+          ),
+        );
         
         if (context.mounted) {
           Navigator.of(context).pop();

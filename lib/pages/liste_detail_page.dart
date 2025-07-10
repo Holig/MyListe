@@ -7,6 +7,8 @@ import 'package:my_liste/models/tag.dart';
 import 'package:my_liste/models/categorie.dart';
 import 'package:uuid/uuid.dart';
 import 'package:my_liste/services/auth_service.dart';
+import '../models/historique_action.dart';
+import 'historique_page.dart';
 
 class ListeDetailPage extends ConsumerWidget {
   final String superlisteId;
@@ -46,7 +48,14 @@ class ListeDetailPage extends ConsumerWidget {
             icon: const Icon(Icons.history),
             tooltip: 'Historique',
             onPressed: () {
-              // TODO: Naviguer vers l'historique
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => HistoriquePage(
+                    superlisteId: superlisteId,
+                    listeId: listeId,
+                  ),
+                ),
+              );
             },
           ),
         ],
@@ -376,6 +385,19 @@ class ListeDetailPage extends ConsumerWidget {
         listeId,
         newElement,
       );
+      // Historique ajout
+      await ref.read(databaseServiceProvider).addHistoriqueAction(
+        familleId: user.familleActiveId,
+        superlisteId: superlisteId,
+        listeId: listeId,
+        action: HistoriqueAction(
+          id: '',
+          userId: user.email,
+          type: 'ajout',
+          elementNom: nom,
+          date: DateTime.now(),
+        ),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Élément "$nom" ajouté !'),
@@ -414,6 +436,19 @@ class ListeDetailPage extends ConsumerWidget {
         listeId,
         updatedElement,
       );
+      // Historique like
+      await ref.read(databaseServiceProvider).addHistoriqueAction(
+        familleId: user.familleActiveId,
+        superlisteId: superlisteId,
+        listeId: listeId,
+        action: HistoriqueAction(
+          id: '',
+          userId: user.email,
+          type: updatedElement.like ? 'like' : 'unlike',
+          elementNom: element.nom,
+          date: DateTime.now(),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -445,6 +480,19 @@ class ListeDetailPage extends ConsumerWidget {
         superlisteId,
         listeId,
         updatedElement,
+      );
+      // Historique dislike
+      await ref.read(databaseServiceProvider).addHistoriqueAction(
+        familleId: user.familleActiveId,
+        superlisteId: superlisteId,
+        listeId: listeId,
+        action: HistoriqueAction(
+          id: '',
+          userId: user.email,
+          type: updatedElement.dislike ? 'dislike' : 'undislike',
+          elementNom: element.nom,
+          date: DateTime.now(),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -570,6 +618,42 @@ class ListeDetailPage extends ConsumerWidget {
         listeId,
         updatedElement,
       );
+      // Historique modification du nom
+      if (element.nom != newNom) {
+        await ref.read(databaseServiceProvider).addHistoriqueAction(
+          familleId: user.familleActiveId,
+          superlisteId: superlisteId,
+          listeId: listeId,
+          action: HistoriqueAction(
+            id: '',
+            userId: user.email,
+            type: 'modification',
+            elementNom: newNom,
+            ancienneValeur: element.nom,
+            nouvelleValeur: newNom,
+            date: DateTime.now(),
+          ),
+        );
+      }
+      // Historique modification de catégorie
+      if (element.categorieId != newCategorieId) {
+        await ref.read(databaseServiceProvider).addHistoriqueAction(
+          familleId: user.familleActiveId,
+          superlisteId: superlisteId,
+          listeId: listeId,
+          action: HistoriqueAction(
+            id: '',
+            userId: user.email,
+            type: newCategorieId.isEmpty
+                ? (element.categorieId.isEmpty ? 'modification_categorie' : 'suppression_categorie')
+                : (element.categorieId.isEmpty ? 'ajout_categorie' : 'modification_categorie'),
+            elementNom: newNom,
+            ancienneValeur: element.categorieId,
+            nouvelleValeur: newCategorieId,
+            date: DateTime.now(),
+          ),
+        );
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Élément modifié !'), backgroundColor: Colors.green),
       );
@@ -623,6 +707,19 @@ class ListeDetailPage extends ConsumerWidget {
           superlisteId,
           listeId,
           element.id,
+        );
+        // Historique suppression
+        await ref.read(databaseServiceProvider).addHistoriqueAction(
+          familleId: user.familleActiveId,
+          superlisteId: superlisteId,
+          listeId: listeId,
+          action: HistoriqueAction(
+            id: '',
+            userId: user.email,
+            type: 'suppression',
+            elementNom: element.nom,
+            date: DateTime.now(),
+          ),
         );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Élément supprimé !'), backgroundColor: Colors.red),

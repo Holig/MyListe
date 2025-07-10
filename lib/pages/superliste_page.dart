@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_liste/models/superliste.dart';
 import 'package:my_liste/models/liste.dart';
+import 'package:my_liste/models/tag.dart';
 import 'package:my_liste/services/auth_service.dart';
 import 'package:my_liste/services/database_service.dart';
 import 'package:my_liste/pages/categories_page.dart';
@@ -471,8 +472,30 @@ class SuperlistePage extends ConsumerWidget {
       return;
     }
     final newTitre = '${liste.titre} (copie)';
-    // Ne dupliquer que les éléments non likés
-    final elementsADupliquer = liste.elements.where((e) => !e.like).toList();
+    final choix = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dupliquer la liste'),
+        content: const Text('Que souhaitez-vous conserver dans la nouvelle liste ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('all'),
+            child: const Text('Conserver tous les éléments'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop('not_validated'),
+            child: const Text('Conserver seulement les éléments non validés'),
+          ),
+        ],
+      ),
+    );
+    if (choix == null) return;
+    List<Tag> elementsADupliquer;
+    if (choix == 'all') {
+      elementsADupliquer = List.from(liste.elements);
+    } else {
+      elementsADupliquer = liste.elements.where((e) => !e.like).toList();
+    }
     await ref.read(databaseServiceProvider).createListe(
       user.familleActiveId,
       liste.superlisteId,

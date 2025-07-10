@@ -7,6 +7,7 @@ import 'package:my_liste/models/superliste.dart';
 import 'package:my_liste/models/liste.dart';
 import 'package:my_liste/models/tag.dart';
 import 'package:my_liste/models/categorie.dart';
+import 'package:my_liste/models/historique_action.dart';
 import 'package:my_liste/services/auth_service.dart';
 
 class DatabaseService {
@@ -402,17 +403,67 @@ class DatabaseService {
     return allTags;
   }
 
+  /// Ajoute une action à l'historique d'une liste
+  Future<void> addHistoriqueAction({
+    required String familleId,
+    required String superlisteId,
+    required String listeId,
+    required HistoriqueAction action,
+  }) async {
+    final historiqueRef = _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(listeId)
+        .collection('historique')
+        .doc();
+    await historiqueRef.set(action.toMap());
+  }
+
+  /// Récupère le stream de l'historique d'une liste
+  Stream<List<HistoriqueAction>> getHistoriqueActions(String familleId, String superlisteId, String listeId) {
+    return _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(listeId)
+        .collection('historique')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => HistoriqueAction.fromMap(doc.id, doc.data()))
+            .toList());
+  }
+
+  /// Ajoute une action à l'historique des catégories d'une superliste
+  Future<void> addCategorieHistoriqueAction({
+    required String familleId,
+    required String superlisteId,
+    required HistoriqueAction action,
+  }) async {
+    final historiqueRef = _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('categories_historique')
+        .doc();
+    await historiqueRef.set(action.toMap());
+  }
+
   /// Génère un code d'invitation unique pour une famille.
   String _generateInvitationCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = DateTime.now().millisecondsSinceEpoch;
+    final rand = DateTime.now().millisecondsSinceEpoch;
     final code = StringBuffer();
-    
-    for (int i = 0; i < 6; i++) {
-      final index = (random + i) % chars.length;
+    for (int i = 0; i < 8; i++) {
+      final index = (rand * (i + 1) + (rand >> (i + 2))) % chars.length;
       code.write(chars[index]);
     }
-    
     return code.toString();
   }
 
@@ -530,6 +581,36 @@ class DatabaseService {
         .collection('superlistes')
         .doc(superlisteId)
         .update({'nom': nouveauNom});
+  }
+
+  /// Supprime toutes les entrées d'historique d'une liste
+  Future<void> deleteAllHistoriqueActions(String familleId, String superlisteId, String listeId) async {
+    final historiqueRef = _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(listeId)
+        .collection('historique');
+    final batch = _db.batch();
+    final snapshot = await historiqueRef.get();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  /// Met à jour le type de palette de la famille
+  Future<void> updateFamilyPaletteType(String familleId, String paletteType) async {
+    final familleRef = _db.collection('familles').doc(familleId);
+    await familleRef.update({'paletteType': paletteType});
+  }
+
+  /// Met à jour la liste des dégradés personnalisés de la famille
+  Future<void> updateFamilyCustomGradients(String familleId, List<List<String>> gradients) async {
+    final familleRef = _db.collection('familles').doc(familleId);
+    await familleRef.update({'customGradients': gradients});
   }
 }
 

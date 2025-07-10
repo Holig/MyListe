@@ -9,16 +9,6 @@ class AProposPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go('/accueil');
-            }
-          },
-        ),
         title: const Text('À propos'),
       ),
       body: SingleChildScrollView(
