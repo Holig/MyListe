@@ -76,14 +76,15 @@ class GererMembresPage extends ConsumerWidget {
                   ...membres.map((membre) {
                     final isOwner = famille.adminIds.isNotEmpty && famille.adminIds.first == membre.id;
                     final isCurrentUser = membre.id == user.id;
+                    final isMembreAdmin = famille.adminIds.contains(membre.id);
                     String roleLabel = isOwner
                         ? 'Propriétaire'
-                        : isAdmin
+                        : isMembreAdmin
                             ? 'Admin'
                             : 'Membre';
                     Color? roleColor = isOwner
                         ? Colors.deepPurple
-                        : isAdmin
+                        : isMembreAdmin
                             ? Colors.green
                             : null;
                     return Card(
@@ -91,7 +92,7 @@ class GererMembresPage extends ConsumerWidget {
                         leading: Icon(
                           isOwner
                               ? Icons.verified
-                              : isAdmin
+                              : isMembreAdmin
                                   ? Icons.verified_user
                                   : Icons.person,
                           color: roleColor,
@@ -108,37 +109,52 @@ class GererMembresPage extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Promotion/rétrogradation (admin seulement, sauf propriétaire)
-                            if (famille.adminIds.contains(user.id) && !isCurrentUser && !isOwner)
-                              isAdmin
-                                  ? IconButton(
-                                      icon: const Icon(Icons.arrow_downward, color: Colors.orange),
-                                      tooltip: 'Rétrograder en membre',
-                                      onPressed: () async {
-                                        try {
-                                          await ref.read(databaseServiceProvider).demoteFromAdmin(famille.id, membre.id);
-                                          print('Rétrogradation réussie pour ${membre.email}');
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('"${membre.email}" est maintenant membre.'), backgroundColor: Colors.green),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          print('Erreur rétrogradation: $e');
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Erreur lors de la rétrogradation : $e'), backgroundColor: Colors.red),
-                                            );
-                                          }
-                                        }
-                                      },
-                                    )
-                                  : IconButton(
-                                      icon: const Icon(Icons.arrow_upward, color: Colors.blue),
-                                      tooltip: 'Promouvoir en admin',
-                                      onPressed: () async {
-                                        await ref.read(databaseServiceProvider).promoteToAdmin(famille.id, membre.id);
-                                      },
-                                    ),
+                            ...[
+                              if (famille.adminIds.contains(user.id) && !isCurrentUser && !isOwner && isMembreAdmin && !isOwner)
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_downward, color: Colors.orange),
+                                  tooltip: 'Rétrograder en membre',
+                                  onPressed: () async {
+                                    try {
+                                      await ref.read(databaseServiceProvider).demoteFromAdmin(famille.id, membre.id);
+                                      print('Rétrogradation réussie pour \\${membre.email}');
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('"${membre.email}" est maintenant membre.'), backgroundColor: Colors.green),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      print('Erreur rétrogradation: $e');
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Erreur lors de la rétrogradation : $e'), backgroundColor: Colors.red),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              if (famille.adminIds.contains(user.id) && !isCurrentUser && !isOwner && !isMembreAdmin && !isOwner)
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_upward, color: Colors.blue),
+                                  tooltip: 'Promouvoir en admin',
+                                  onPressed: () async {
+                                    try {
+                                      await ref.read(databaseServiceProvider).promoteToAdmin(famille.id, membre.id);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('"${membre.email}" est maintenant admin.'), backgroundColor: Colors.green),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Erreur lors de la promotion : $e'), backgroundColor: Colors.red),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                            ],
                             // Suppression (admin seulement, sauf propriétaire et soi-même)
                             if (famille.adminIds.contains(user.id) && !isCurrentUser && !isOwner)
                               IconButton(

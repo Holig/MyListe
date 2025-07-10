@@ -56,82 +56,43 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
     return Scaffold(
       appBar: AppBar(
         title: const Text('MyListe'),
-        actions: [
-          Consumer(
-            builder: (context, ref, _) {
-              final user = ref.watch(currentUserProvider).value;
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              if (user == null) return const SizedBox.shrink();
-              return Container(
-                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.15) : Colors.grey[200],
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: isDark ? Colors.white24 : Colors.grey[400]!),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.account_circle, color: isDark ? Colors.white : Colors.black87, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      user.email,
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      icon: Icon(Icons.logout, color: isDark ? Colors.white : Colors.black87),
-                      tooltip: 'Se déconnecter',
-                      onPressed: () => _handleLogout(context, ref),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          Consumer(
-            builder: (context, ref, _) {
-              final themeMode = ref.watch(themeModeProvider);
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              return IconButton(
-                icon: Icon(
-                  isDark ? Icons.wb_sunny : Icons.nightlight_round,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-                tooltip: isDark ? 'Mode clair' : 'Mode sombre',
-                onPressed: () {
-                  ref.read(themeModeProvider.notifier).state =
-                    isDark ? ThemeMode.light : ThemeMode.dark;
-                },
-              );
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.list_alt),
-              text: 'Superlistes',
-            ),
-            Tab(
-              icon: Icon(Icons.family_restroom),
-              text: 'Paramètres Familles',
-            ),
-            Tab(
-              icon: Icon(Icons.contact_support),
-              text: 'Contact',
-            ),
-            Tab(
-              icon: Icon(Icons.info),
-              text: 'À propos',
-            ),
-          ],
-        ),
+        automaticallyImplyLeading: false,
+        toolbarHeight: 56,
+        bottom: null,
       ),
       body: Column(
         children: [
+          // Barre secondaire : actions + onglets
+          Material(
+            color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTopActionsBar(context),
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(
+                      icon: Icon(Icons.list_alt),
+                      text: 'Superlistes',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.family_restroom),
+                      text: 'Paramètres Familles',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.contact_support),
+                      text: 'Contact',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.info),
+                      text: 'À propos',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           Consumer(
             builder: (context, ref, _) {
               final familleAsync = ref.watch(familleProvider);
@@ -349,6 +310,52 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
 
   void _handleLogout(BuildContext context, WidgetRef ref) async {
     await ref.read(authServiceProvider).signOut();
+  }
+
+  Widget _buildTopActionsBar(BuildContext context) {
+    final ref = this.ref;
+    final user = ref.watch(currentUserProvider).value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey[100],
+        border: Border(
+          bottom: BorderSide(color: isDark ? Colors.white24 : Colors.grey[300]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (user != null) ...[
+            IconButton(
+              icon: Icon(Icons.logout, color: isDark ? Colors.white : Colors.black87),
+              tooltip: 'Se déconnecter',
+              onPressed: () => _handleLogout(context, ref),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.account_circle, color: isDark ? Colors.white : Colors.black87, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              user.email,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w500),
+            ),
+          ],
+          const Spacer(),
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.nightlight_round : Icons.wb_sunny,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+            tooltip: isDark ? 'Mode clair' : 'Mode sombre',
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).state =
+                  isDark ? ThemeMode.light : ThemeMode.dark;
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Color hexToColor(String hex) {

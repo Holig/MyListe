@@ -90,21 +90,45 @@ class AuthService {
   /// Connexion avec Google
   Future<UserCredential> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // L'utilisateur a annulé la connexion
-        throw Exception('Connexion avec Google annulée.');
+      if (kIsWeb) {
+        // Sur le web, utiliser signInWithRedirect pour mobile, sinon signInWithPopup
+        final isMobile =
+            (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android);
+        if (isMobile) {
+          // Redirige l'utilisateur pour l'auth Google (plus fiable sur mobile web)
+          await _auth.signInWithRedirect(GoogleAuthProvider());
+          // La navigation se fera automatiquement après le retour
+          throw Exception('Veuillez finaliser la connexion Google dans la fenêtre ouverte.');
+        } else {
+          // Sur desktop web, on peut utiliser le flux GoogleSignIn classique
+          final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+          if (googleUser == null) {
+            throw Exception('Connexion avec Google annulée.');
+          }
+          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+          final AuthCredential credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          final userCredential = await _auth.signInWithCredential(credential);
+          await _dbService.upsertUser(userCredential.user!);
+          return userCredential;
+        }
+      } else {
+        // Mobile natif (Android/iOS)
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          throw Exception('Connexion avec Google annulée.');
+        }
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        final userCredential = await _auth.signInWithCredential(credential);
+        await _dbService.upsertUser(userCredential.user!);
+        return userCredential;
       }
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCredential = await _auth.signInWithCredential(credential);
-      await _dbService.upsertUser(userCredential.user!);
-      return userCredential;
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
@@ -124,7 +148,7 @@ class AuthService {
           errorMessage = 'Aucun utilisateur trouvé avec ces informations d\'identification.';
           break;
         default:
-          errorMessage = 'Erreur de connexion avec Google: ${e.message}';
+          errorMessage = 'Erreur de connexion avec Google:  [31m${e.message} [0m';
       }
       throw Exception(errorMessage);
     } catch (e) {

@@ -77,12 +77,13 @@ class ListeDetailPage extends ConsumerWidget {
   Widget _buildSearchBar(BuildContext context, WidgetRef ref, Liste liste) {
     final user = ref.read(currentUserProvider).value;
     final familleId = user?.familleActiveId ?? '';
-            final Future<List<Tag>> futureSuggestions =
+    final Future<List<Tag>> futureSuggestions =
         (familleId.isNotEmpty)
             ? ref.read(databaseServiceProvider).getAllElementsOfSuperliste(familleId, superlisteId)
             : Future.value([]);
 
     String? lastSelected;
+    final textController = TextEditingController();
 
     return FutureBuilder<List<Tag>>(
       future: futureSuggestions,
@@ -101,8 +102,16 @@ class ListeDetailPage extends ConsumerWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
-            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey[900]
+                : Colors.grey[50],
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[800]!
+                    : Colors.grey[300]!,
+              ),
+            ),
           ),
           child: Row(
             children: [
@@ -115,22 +124,31 @@ class ListeDetailPage extends ConsumerWidget {
                     return uniqueSuggestions.where((option) =>
                         option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                   },
-                  fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                  fieldViewBuilder: (context, _, focusNode, onFieldSubmitted) {
                     return TextField(
-                      controller: textEditingController,
+                      controller: textController,
                       focusNode: focusNode,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Ajouter un élément...',
-                        prefixIcon: Icon(Icons.add),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        prefixIcon: const Icon(Icons.add),
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        filled: true,
+                        fillColor: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[850]
+                            : Colors.white,
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[400]
+                              : Colors.grey[700],
+                        ),
                       ),
                       onSubmitted: (value) {
                         final toAdd = lastSelected ?? value.trim();
                         if (toAdd.isNotEmpty) {
                           final catId = lastCategorieByNom[toAdd] ?? '';
                           _addElement(context, ref, liste, toAdd, catId);
-                          textEditingController.clear();
+                          textController.clear();
                           lastSelected = null;
                         }
                       },
@@ -156,20 +174,11 @@ class ListeDetailPage extends ConsumerWidget {
               const SizedBox(width: 8),
               IconButton(
                 onPressed: () {
-                  // Utilise le contrôleur interne de l'autocomplete
-                  final field = FocusScope.of(context).focusedChild?.context?.widget;
-                  String toAdd = '';
-                  if (field is TextField) {
-                    toAdd = field.controller?.text.trim() ?? '';
-                  }
-                  toAdd = lastSelected ?? toAdd;
+                  final toAdd = lastSelected ?? textController.text.trim();
                   if (toAdd.isNotEmpty) {
                     final catId = lastCategorieByNom[toAdd] ?? '';
                     _addElement(context, ref, liste, toAdd, catId);
-                    // Vide le champ via le contrôleur interne
-                    if (field is TextField) {
-                      field.controller?.clear();
-                    }
+                    textController.clear();
                     lastSelected = null;
                   }
                 },
@@ -240,12 +249,17 @@ class ListeDetailPage extends ConsumerWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.grey[100],
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[850]
+              : Colors.grey[100],
           child: Text(
             categorie?.nom ?? 'Sans catégorie',
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[100]
+                  : Colors.black,
             ),
           ),
         ),
@@ -267,17 +281,25 @@ class ListeDetailPage extends ConsumerWidget {
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: isLiked 
-          ? Colors.green[50] 
-          : isDisliked 
-              ? Colors.red[50] 
+      color: isLiked
+          ? (Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1B5E20) // vert foncé
+              : Colors.green[50])
+          : isDisliked
+              ? (Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFB71C1C) // rouge foncé
+                  : Colors.red[50])
               : null,
       child: ListTile(
         title: Text(
           element.nom,
           style: TextStyle(
             decoration: isLiked ? TextDecoration.lineThrough : null,
-            color: isLiked ? Colors.grey[600] : null,
+            color: (Theme.of(context).brightness == Brightness.dark && (isLiked || isDisliked))
+                ? Colors.white
+                : isLiked
+                    ? Colors.grey[600]
+                    : null,
           ),
         ),
         trailing: Row(

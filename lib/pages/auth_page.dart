@@ -98,9 +98,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
               if (errorMessage.startsWith('Exception: ')) {
                 errorMessage = errorMessage.substring(11);
               }
-              ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-              );
+            );
             }
           }
         },

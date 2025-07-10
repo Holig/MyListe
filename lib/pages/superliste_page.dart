@@ -26,13 +26,6 @@ class SuperlistePage extends ConsumerWidget {
         ),
         title: const Text('Superliste'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.category),
-            tooltip: 'Gérer les catégories',
-            onPressed: () {
-              _showCategoriesDialog(context, ref);
-            },
-          ),
         ],
       ),
       body: Column(
@@ -77,14 +70,21 @@ class SuperlistePage extends ConsumerWidget {
                 children: [
                   const Icon(Icons.list_alt, color: Colors.green),
                   const SizedBox(width: 8),
-                  Text(
-                    superliste?.nom ?? 'Superliste',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      superliste?.nom ?? 'Superliste',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  if (superliste != null)
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      tooltip: 'Renommer la superliste',
+                      onPressed: () => _showEditSuperlisteNameDialog(context, ref, superliste),
+                    ),
                   IconButton(
                     icon: const Icon(Icons.add),
                     tooltip: 'Créer une liste',
@@ -143,6 +143,21 @@ class SuperlistePage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomAppBar(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.category),
+            label: const Text('Gérer les catégories'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => _showCategoriesDialog(context, ref),
+          ),
+        ),
       ),
     );
   }
@@ -456,7 +471,14 @@ class SuperlistePage extends ConsumerWidget {
       return;
     }
     final newTitre = '${liste.titre} (copie)';
-    await ref.read(databaseServiceProvider).createListe(user.familleActiveId, liste.superlisteId, newTitre);
+    // Ne dupliquer que les éléments non likés
+    final elementsADupliquer = liste.elements.where((e) => !e.like).toList();
+    await ref.read(databaseServiceProvider).createListe(
+      user.familleActiveId,
+      liste.superlisteId,
+      newTitre,
+      elements: elementsADupliquer,
+    );
     _showSnackBar(context, 'Liste dupliquée avec succès !', Colors.blue);
   }
 
@@ -503,6 +525,70 @@ class SuperlistePage extends ConsumerWidget {
         backgroundColor: color,
       ),
     );
+  }
+
+  void _showEditSuperlisteNameDialog(BuildContext context, WidgetRef ref, Superliste superliste) {
+    final controller = TextEditingController(text: superliste.nom);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Renommer la superliste'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Nom de la superliste',
+          ),
+          autofocus: true,
+          onSubmitted: (value) async {
+            if (value.trim().isNotEmpty) {
+              await _updateSuperlisteName(context, ref, superliste, value.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                await _updateSuperlisteName(context, ref, superliste, controller.text.trim());
+              }
+            },
+            child: const Text('Renommer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateSuperlisteName(BuildContext context, WidgetRef ref, Superliste superliste, String nouveauNom) async {
+    try {
+      final user = ref.read(currentUserProvider).value;
+      if (user != null && user.familleActiveId.isNotEmpty) {
+        await ref.read(databaseServiceProvider).updateSuperlisteName(user.familleActiveId, superliste.id, nouveauNom);
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Superliste renommée !'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du renommage : $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 } 
 

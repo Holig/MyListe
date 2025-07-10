@@ -167,7 +167,7 @@ class DatabaseService {
   }
 
   /// Crée une nouvelle liste dans une superliste.
-  Future<void> createListe(String familleId, String superlisteId, String titre) async {
+  Future<void> createListe(String familleId, String superlisteId, String titre, {List<Tag>? elements}) async {
     final listeRef = _db
         .collection('familles')
         .doc(familleId)
@@ -182,7 +182,7 @@ class DatabaseService {
       titre: titre,
       date: DateTime.now(),
       fermee: false,
-      elements: [],
+      elements: elements ?? [],
     );
     
     await listeRef.set(nouvelleListe.toMap());
@@ -520,6 +520,16 @@ class DatabaseService {
       'gradientColor1': color1,
       'gradientColor2': color2,
     });
+  }
+
+  /// Met à jour le nom d'une superliste
+  Future<void> updateSuperlisteName(String familleId, String superlisteId, String nouveauNom) async {
+    await _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .update({'nom': nouveauNom});
   }
 }
 
