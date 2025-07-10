@@ -32,17 +32,17 @@ Créer une application **Flutter/Dart** connectée à **Firebase** (auth, base d
 
 ---
 
-## 👨‍👩‍👧‍👦 Famille & Branches
+## 👨‍👩‍👧‍👦 Famille & SuperListe
 
 ### Famille
 
 - Groupe d’utilisateurs partageant leurs données
 
-### Branches (types de listes)
+### SuperListe (types de listes)
 
 - Exemples : Courses, Séries, Activités, To-do
-- Chaque branche contient ses **propres listes**
-- Accès direct depuis l’accueil à toutes les branches
+- Chaque SuperListe contient ses **propres listes**
+- Accès direct depuis l’accueil à toutes les SuperListes
 
 ---
 
