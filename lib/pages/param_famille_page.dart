@@ -43,9 +43,6 @@ class ParamFamillePage extends ConsumerWidget {
     ref.watch(settingsRefreshProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Paramètres de la famille'),
-      ),
       body: userAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Erreur: $err')),
@@ -70,6 +67,28 @@ class ParamFamillePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Ajoute une ligne de titre stylée avec icône pour 'Paramètres de la famille' en haut de la page
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.surface : Colors.grey[100],
+                    border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.settings, color: Colors.green),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Paramètres de la famille',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Section Mes familles
                 FutureBuilder<List<Famille?>> (
                   future: famillesFuture,
@@ -78,7 +97,13 @@ class ParamFamillePage extends ConsumerWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Mes familles', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            const Icon(Icons.family_restroom, size: 22),
+                            const SizedBox(width: 8),
+                            const Text('Mes familles', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         ...familles.map((fam) => fam.id == user.familleActiveId
                           ? Container(
@@ -98,13 +123,15 @@ class ParamFamillePage extends ConsumerWidget {
                                 leading: const Icon(Icons.check_circle, color: Colors.white),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.edit, color: Colors.white),
-                                  tooltip: 'Personnaliser le dégradé',
+                                  tooltip: 'Renommer ou personnaliser',
                                   onPressed: () async {
-                                    await showDialog(
+                                    final result = await showDialog<bool>(
                                       context: context,
-                                      builder: (context) => _GradientPickerDialog(famille: fam, ref: ref),
+                                      builder: (context) => _EditFamilyDialog(famille: fam, ref: ref),
                                     );
-                                    ref.read(settingsRefreshProvider.notifier).state++;
+                                    if (result == true) {
+                                      ref.read(settingsRefreshProvider.notifier).state++;
+                                    }
                                   },
                                 ),
                               ),
@@ -308,7 +335,18 @@ final familleProvider = StreamProvider<Famille?>((ref) {
 class _GradientPickerDialog extends StatefulWidget {
   final Famille famille;
   final WidgetRef ref;
-  const _GradientPickerDialog({required this.famille, required this.ref});
+  final String initialColor1;
+  final String initialColor2;
+  final Function(String, String) onGradientChanged;
+  final bool isDialog;
+  const _GradientPickerDialog({
+    required this.famille,
+    required this.ref,
+    required this.initialColor1,
+    required this.initialColor2,
+    required this.onGradientChanged,
+    this.isDialog = true,
+  });
 
   @override
   State<_GradientPickerDialog> createState() => _GradientPickerDialogState();
@@ -329,6 +367,8 @@ class _GradientPickerDialogState extends State<_GradientPickerDialog> {
     if (widget.famille.customGradients != null) {
       customGradients = List.from(widget.famille.customGradients!);
     }
+    customColor1 = hexToColor(widget.initialColor1);
+    customColor2 = hexToColor(widget.initialColor2);
   }
 
   List<String> _generateRandomGradient() {
@@ -371,8 +411,11 @@ class _GradientPickerDialogState extends State<_GradientPickerDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 const Text('Dégradés aléatoires'),
                 Switch(
@@ -537,10 +580,6 @@ class _GradientPickerDialogState extends State<_GradientPickerDialog> {
                                 ),
                               ),
                               actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('Annuler'),
-                                ),
                                 ElevatedButton(
                                   onPressed: () => Navigator.of(context).pop(customColor1),
                                   child: const Text('Valider'),
@@ -579,10 +618,6 @@ class _GradientPickerDialogState extends State<_GradientPickerDialog> {
                                 ),
                               ),
                               actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('Annuler'),
-                                ),
                                 ElevatedButton(
                                   onPressed: () => Navigator.of(context).pop(customColor2),
                                   child: const Text('Valider'),
@@ -604,21 +639,114 @@ class _GradientPickerDialogState extends State<_GradientPickerDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 24),
-                  ElevatedButton(
-                    onPressed: _addCustomGradient,
-                    child: const Text('Ajouter à la palette'),
-                  ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 220),
+                    child: ElevatedButton(
+                      onPressed: _addCustomGradient,
+                      child: const Text('Ajouter à la palette'),
+                    ),
+                  ),
+                ),
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+}
+
+// Ajouter le widget _EditFamilyDialog
+class _EditFamilyDialog extends StatefulWidget {
+  final Famille famille;
+  final WidgetRef ref;
+  const _EditFamilyDialog({required this.famille, required this.ref});
+
+  @override
+  State<_EditFamilyDialog> createState() => _EditFamilyDialogState();
+}
+
+class _EditFamilyDialogState extends State<_EditFamilyDialog> {
+  late TextEditingController _controller;
+  late String _color1;
+  late String _color2;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.famille.nom);
+    _color1 = widget.famille.gradientColor1;
+    _color2 = widget.famille.gradientColor2;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onGradientChanged(String color1, String color2) {
+    setState(() {
+      _color1 = color1;
+      _color2 = color2;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Modifier la famille'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Nom de la famille',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 24),
+            _GradientPickerDialog(
+              famille: widget.famille,
+              ref: widget.ref,
+              initialColor1: _color1,
+              initialColor2: _color2,
+              onGradientChanged: _onGradientChanged,
+              isDialog: false,
+            ),
+          ],
+        ),
+      ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(false),
           child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : () async {
+            setState(() { _saving = true; });
+            final newName = _controller.text.trim();
+            bool changed = false;
+            if (newName.isNotEmpty && newName != widget.famille.nom) {
+              await widget.ref.read(databaseServiceProvider).updateFamilyName(widget.famille.id, newName);
+              changed = true;
+            }
+            if (_color1 != widget.famille.gradientColor1 || _color2 != widget.famille.gradientColor2) {
+              await widget.ref.read(databaseServiceProvider).updateFamilyGradient(widget.famille.id, _color1, _color2);
+              changed = true;
+            }
+            Navigator.of(context).pop(changed);
+          },
+          child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Sauvegarder'),
         ),
       ],
     );

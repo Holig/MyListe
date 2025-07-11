@@ -583,6 +583,12 @@ class DatabaseService {
         .update({'nom': nouveauNom});
   }
 
+  /// Met à jour le nom d'une famille
+  Future<void> updateFamilyName(String familleId, String nouveauNom) async {
+    final familleRef = _db.collection('familles').doc(familleId);
+    await familleRef.update({'nom': nouveauNom});
+  }
+
   /// Supprime toutes les entrées d'historique d'une liste
   Future<void> deleteAllHistoriqueActions(String familleId, String superlisteId, String listeId) async {
     final historiqueRef = _db

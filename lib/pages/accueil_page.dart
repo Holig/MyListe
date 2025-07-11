@@ -9,6 +9,7 @@ import 'package:my_liste/pages/contact_page.dart';
 import 'package:my_liste/pages/a_propos_page.dart';
 import 'package:my_liste/models/famille.dart';
 import 'package:my_liste/main.dart' show themeModeProvider;
+import 'package:my_liste/models/superliste.dart';
 
 class AccueilPage extends ConsumerStatefulWidget {
   const AccueilPage({super.key});
@@ -18,6 +19,23 @@ class AccueilPage extends ConsumerStatefulWidget {
 }
 
 final tabIndexProvider = StateProvider<int>((ref) => 0);
+
+// 1. Ajouter un provider pour récupérer toutes les familles de l'utilisateur
+final allFamillesProvider = StreamProvider<List<Famille>>((ref) async* {
+  final user = ref.watch(currentUserProvider).value;
+  if (user != null && user.famillesIds.isNotEmpty) {
+    final db = ref.watch(databaseServiceProvider);
+    final familles = await Future.wait(user.famillesIds.map((familleId) => db.getFamille(familleId).first));
+    yield familles.whereType<Famille>().toList();
+  } else {
+    yield [];
+  }
+});
+
+// Provider familial pour les superlistes d'une famille
+final superlistesParFamilleProvider = StreamProvider.family<List<Superliste>, String>((ref, familleId) {
+  return ref.watch(databaseServiceProvider).getSuperlistes(familleId);
+});
 
 class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -55,7 +73,11 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
     final currentIndex = ref.watch(tabIndexProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MyListe'),
+        title: Image.asset(
+          'assets/images/logo_myliste_line.png',
+          height: 48,
+          fit: BoxFit.contain,
+        ),
         automaticallyImplyLeading: false,
         toolbarHeight: 56,
         bottom: null,
@@ -93,38 +115,7 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
               ],
             ),
           ),
-          Consumer(
-            builder: (context, ref, _) {
-              final familleAsync = ref.watch(familleProvider);
-              return familleAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (err, stack) => const SizedBox.shrink(),
-                data: (famille) {
-                  if (famille == null) return const SizedBox.shrink();
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          hexToColor(famille.gradientColor1),
-                          hexToColor(famille.gradientColor2),
-                        ],
-                      ),
-                    ),
-                    child: Text(
-                      'Famille "${famille.nom}"',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+          // Supprimer la ligne colorée de la famille active sous les onglets (dans build)
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -138,21 +129,17 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
           ),
         ],
       ),
-      floatingActionButton: currentIndex == 0 ? FloatingActionButton(
-        onPressed: () => _showCreateSuperlisteDialog(context, ref),
-        child: const Icon(Icons.add),
-        tooltip: 'Créer une superliste',
-      ) : null,
+      // Supprimer le bouton flottant (floatingActionButton) du Scaffold
     );
   }
 
   Widget _buildSuperlistesTab() {
-    final superlistesAsync = ref.watch(superlistesProvider);
+    final famillesAsync = ref.watch(allFamillesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       children: [
-        // Sous-AppBar pour afficher le nom de la superliste actuelle
+        // Titre de section
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -173,29 +160,29 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
             ],
           ),
         ),
-        // Contenu des superlistes
+        // Liste des familles et superlistes
         Expanded(
-          child: superlistesAsync.when(
+          child: famillesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(child: Text('Erreur: $err')),
-            data: (superlistes) {
-              if (superlistes.isEmpty) {
+            data: (familles) {
+              if (familles.isEmpty) {
                 return const Center(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_task_rounded, size: 80, color: Colors.grey),
+                        Icon(Icons.family_restroom, size: 80, color: Colors.grey),
                         SizedBox(height: 16),
                         Text(
-                          'Aucune superliste pour le moment.',
+                          'Aucune famille trouvée.',
                           style: TextStyle(fontSize: 18),
                           textAlign: TextAlign.center,
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Cliquez sur le bouton + pour créer votre première superliste !',
+                          'Créez ou rejoignez une famille pour commencer.',
                           style: TextStyle(color: Colors.grey),
                           textAlign: TextAlign.center,
                         ),
@@ -205,19 +192,83 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
                 );
               }
               return ListView.builder(
-                itemCount: superlistes.length,
-                itemBuilder: (context, index) {
-                  final superliste = superlistes[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.list_alt)),
-                      title: Text(superliste.nom),
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                      onTap: () {
-                        context.go('/superliste/${superliste.id}');
-                      },
-                    ),
+                itemCount: familles.length,
+                itemBuilder: (context, famIndex) {
+                  final famille = familles[famIndex];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Bandeau famille avec bouton +
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              hexToColor(famille.gradientColor1),
+                              hexToColor(famille.gradientColor2),
+                            ],
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Famille "${famille.nom}"',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add, color: Colors.white),
+                              tooltip: 'Créer une superliste pour cette famille',
+                              onPressed: () => _showCreateSuperlisteDialogForFamille(context, ref, famille.id),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Superlistes de la famille
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final superlistesAsync = ref.watch(superlistesParFamilleProvider(famille.id));
+                          return superlistesAsync.when(
+                            loading: () => const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                            error: (err, stack) => Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Center(child: Text('Erreur: $err')),
+                            ),
+                            data: (superlistes) {
+                              if (superlistes.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Text('Aucune superliste pour cette famille.', style: TextStyle(color: Colors.white)),
+                                );
+                              }
+                              return Column(
+                                children: superlistes.map((superliste) => Card(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: ListTile(
+                                    leading: const CircleAvatar(child: Icon(Icons.list_alt)),
+                                    title: Text(superliste.nom),
+                                    trailing: const Icon(Icons.arrow_forward_ios),
+                                    onTap: () {
+                                      context.go('/superliste/${superliste.id}');
+                                    },
+                                  ),
+                                )).toList(),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   );
                 },
               );
@@ -278,6 +329,44 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
     );
   }
 
+  // Nouvelle méthode pour créer une superliste pour une famille spécifique
+  void _showCreateSuperlisteDialogForFamille(BuildContext context, WidgetRef ref, String familleId) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Créer une nouvelle superliste'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Nom de la superliste',
+            hintText: 'Ex: Courses, Séries, Activités',
+          ),
+          autofocus: true,
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              _createSuperlisteForFamille(context, ref, familleId, value.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                _createSuperlisteForFamille(context, ref, familleId, controller.text.trim());
+              }
+            },
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _createSuperliste(BuildContext context, WidgetRef ref, String nom) async {
     try {
       final user = ref.read(currentUserProvider).value;
@@ -294,6 +383,31 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
         }
       } else {
         throw Exception('Utilisateur non connecté ou sans famille');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la création: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _createSuperlisteForFamille(BuildContext context, WidgetRef ref, String familleId, String nom) async {
+    try {
+      await ref.read(databaseServiceProvider).createSuperliste(familleId, nom);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Superliste "$nom" créée avec succès !'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {
@@ -349,8 +463,8 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with SingleTickerProv
             ),
             tooltip: isDark ? 'Mode clair' : 'Mode sombre',
             onPressed: () {
-              ref.read(themeModeProvider.notifier).state =
-                  isDark ? ThemeMode.light : ThemeMode.dark;
+              final notifier = ref.read(themeModeProvider.notifier);
+              notifier.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark);
             },
           ),
         ],

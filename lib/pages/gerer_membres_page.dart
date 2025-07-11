@@ -88,16 +88,16 @@ class GererMembresPage extends ConsumerWidget {
                             ? Colors.green
                             : null;
                     return Card(
-                      child: ListTile(
-                        leading: Icon(
+                    child: ListTile(
+                      leading: Icon(
                           isOwner
                               ? Icons.verified
                               : isMembreAdmin
                                   ? Icons.verified_user
                                   : Icons.person,
                           color: roleColor,
-                        ),
-                        title: Text(membre.nom ?? membre.email),
+                      ),
+                      title: Text(membre.nom ?? membre.email),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -105,9 +105,9 @@ class GererMembresPage extends ConsumerWidget {
                             Text(roleLabel, style: TextStyle(color: roleColor, fontWeight: FontWeight.bold)),
                           ],
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                             // Promotion/rétrogradation (admin seulement, sauf propriétaire)
                             ...[
                               if (famille.adminIds.contains(user.id) && !isCurrentUser && !isOwner && isMembreAdmin && !isOwner)
@@ -157,26 +157,26 @@ class GererMembresPage extends ConsumerWidget {
                             ],
                             // Suppression (admin seulement, sauf propriétaire et soi-même)
                             if (famille.adminIds.contains(user.id) && !isCurrentUser && !isOwner)
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle, color: Colors.red),
-                                tooltip: 'Supprimer ce membre',
-                                onPressed: () async {
-                                  await _removeMember(context, ref, famille, membre);
-                                },
-                              ),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle, color: Colors.red),
+                              tooltip: 'Supprimer ce membre',
+                              onPressed: () async {
+                                await _removeMember(context, ref, famille, membre);
+                              },
+                            ),
                             // Quitter la famille (pour soi-même)
                             if (isCurrentUser && user.famillesIds.length > 1)
-                              IconButton(
-                                icon: const Icon(Icons.exit_to_app),
-                                tooltip: 'Quitter la famille',
-                                onPressed: () async {
-                                  await ref.read(databaseServiceProvider).quitFamily(famille.id, auth.FirebaseAuth.instance.currentUser!);
-                                  context.go('/accueil');
-                                },
-                              ),
-                          ],
-                        ),
+                            IconButton(
+                              icon: const Icon(Icons.exit_to_app),
+                              tooltip: 'Quitter la famille',
+                              onPressed: () async {
+                                await ref.read(databaseServiceProvider).quitFamily(famille.id, auth.FirebaseAuth.instance.currentUser!);
+                                context.go('/accueil');
+                              },
+                            ),
+                        ],
                       ),
+                    ),
                     );
                   }),
                   if (membres.isEmpty)

@@ -10,6 +10,7 @@ import 'package:uni_links/uni_links.dart';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:ui_web' as ui;
 import 'dart:html' as html;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Import des pages
 import 'pages/accueil_page.dart';
@@ -176,7 +177,33 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
+// Provider pour le mode sombre/clair persistant
+final themeModeProvider = AsyncNotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+class ThemeModeNotifier extends AsyncNotifier<ThemeMode> {
+  static const _key = 'theme_mode';
+
+  @override
+  FutureOr<ThemeMode> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_key);
+    if (value == 'dark') return ThemeMode.dark;
+    if (value == 'light') return ThemeMode.light;
+    return ThemeMode.system;
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    state = AsyncValue.data(mode);
+    final prefs = await SharedPreferences.getInstance();
+    if (mode == ThemeMode.dark) {
+      await prefs.setString(_key, 'dark');
+    } else if (mode == ThemeMode.light) {
+      await prefs.setString(_key, 'light');
+    } else {
+      await prefs.remove(_key);
+    }
+  }
+}
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
@@ -184,7 +211,8 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    final themeModeAsync = ref.watch(themeModeProvider);
+    final themeMode = themeModeAsync.asData?.value ?? ThemeMode.system;
 
     return DeepLinkListener(
       child: MaterialApp.router(

@@ -153,6 +153,28 @@ class AuthService {
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
+
+  /// Envoie un email de réinitialisation de mot de passe
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'Aucun utilisateur trouvé avec cette adresse e-mail.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Adresse e-mail invalide.';
+          break;
+        default:
+          errorMessage = 'Erreur lors de la réinitialisation: ${e.message}';
+      }
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Erreur lors de la réinitialisation du mot de passe.');
+    }
+  }
 }
 
 // --- PROVIDERS RIVERPOD ---

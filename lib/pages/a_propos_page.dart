@@ -8,39 +8,43 @@ class AProposPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('À propos'),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Logo et titre
-            Center(
-              child: Column(
+            // Ajoute une ligne de titre stylée avec icône avant le logo et le titre MyListe
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.surface : Colors.grey[100],
+                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.green[100],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                      Icons.list_alt,
-                      size: 80,
-                      color: Colors.green[600],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const Icon(Icons.info_outline, color: Colors.green),
+                  const SizedBox(width: 8),
                   const Text(
-                    'MyListe',
+                    'À propos',
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Remplace le bloc logo + texte par le logo image
+            Center(
+              child: Column(
+                children: [
+                  Image.asset(
+                    'assets/images/logo__myliste.png',
+                    height: 240,
+                  ),
+                  const SizedBox(height: 16),
+                  // ... (on ne remet pas le texte 'MyListe')
                   Text(
                     'Version 1.0.0',
                     style: TextStyle(
@@ -85,8 +89,8 @@ class AProposPage extends ConsumerWidget {
             const SizedBox(height: 16),
             _buildFeatureItem(
               icon: Icons.group,
-              title: 'Collaboration familiale',
-              description: 'Partagez vos listes avec tous les membres de votre famille',
+              title: 'Collaboration familiale ou amicale',
+              description: 'Partagez vos listes avec tous les membres de votre famille ou amis',
             ),
             _buildFeatureItem(
               icon: Icons.category,
@@ -141,34 +145,7 @@ class AProposPage extends ConsumerWidget {
             ),
             
             const SizedBox(height: 24),
-            
-            // Liens utiles
-            const Text(
-              'Liens utiles',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildLinkItem(
-              icon: Icons.description,
-              title: 'Politique de confidentialité',
-              onTap: () => _openPrivacyPolicy(context),
-            ),
-            _buildLinkItem(
-              icon: Icons.description,
-              title: 'Conditions d\'utilisation',
-              onTap: () => _openTermsOfService(context),
-            ),
-            _buildLinkItem(
-              icon: Icons.contact_support,
-              title: 'Nous contacter',
-              onTap: () => _openContact(context),
-            ),
-            
-            const SizedBox(height: 32),
-            
+               
             // Copyright
             Center(
               child: Text(

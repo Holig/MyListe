@@ -496,6 +496,16 @@ class SuperlistePage extends ConsumerWidget {
     } else {
       elementsADupliquer = liste.elements.where((e) => !e.like).toList();
     }
+    // Réinitialiser les likes/dislikes sur tous les éléments dupliqués
+    elementsADupliquer = elementsADupliquer
+        .map((e) => Tag(
+              id: e.id,
+              nom: e.nom,
+              categorieId: e.categorieId,
+              like: false,
+              dislike: false,
+            ))
+        .toList();
     await ref.read(databaseServiceProvider).createListe(
       user.familleActiveId,
       liste.superlisteId,

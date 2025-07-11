@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class ContactPage extends ConsumerStatefulWidget {
   const ContactPage({super.key});
@@ -27,9 +28,6 @@ class _ContactPageState extends ConsumerState<ContactPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Contact'),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -37,14 +35,28 @@ class _ContactPageState extends ConsumerState<ContactPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Nous contacter',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              // Ajoute une ligne de titre stylée avec icône avant le texte d'intro
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.surface : Colors.grey[100],
+                  border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.contact_mail, color: Colors.green),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Contact',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Text(
                 'Vous avez une question, une suggestion ou vous avez trouvé un bug ? N\'hésitez pas à nous contacter !',
                 style: TextStyle(
@@ -217,16 +229,25 @@ class _ContactPageState extends ConsumerState<ContactPage> {
     );
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implémenter l'envoi du message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Message envoyé avec succès ! Nous vous répondrons rapidement.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
+      final nom = _nomController.text.trim();
+      final email = _emailController.text.trim();
+      final message = _messageController.text.trim();
+      final type = _typeMessage;
+      final subject = Uri.encodeComponent('[MyListe] $type de $nom');
+      final body = Uri.encodeComponent('Nom: $nom\nEmail: $email\nType: $type\n\n$message');
+      final mailto = 'mailto:olivier.hagege@gmail.com?subject=$subject&body=$body';
+      if (await canLaunchUrlString(mailto)) {
+        await launchUrlString(mailto);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir le client mail.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       // Réinitialiser le formulaire
       _nomController.clear();
       _emailController.clear();
