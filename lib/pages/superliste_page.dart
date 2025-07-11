@@ -9,6 +9,10 @@ import 'package:my_liste/services/database_service.dart';
 import 'package:my_liste/pages/categories_page.dart';
 import 'package:intl/intl.dart';
 
+// Variables globales pour mémoriser les choix de duplication
+List<bool> _detailsChecked = [true, true, true]; // Catégorie, Quantité, Commentaire
+int _choixPrincipal = 0; // 0: tous, 1: non validés, 2: validés, 3: sans statut, 4: non validés et sans statut
+
 class SuperlistePage extends ConsumerWidget {
   final String id;
   const SuperlistePage({required this.id, super.key});
@@ -73,12 +77,12 @@ class SuperlistePage extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      superliste?.nom ?? 'Superliste',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    superliste?.nom ?? 'Superliste',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
                   ),
                   if (superliste != null)
                     IconButton(
@@ -415,6 +419,63 @@ class SuperlistePage extends ConsumerWidget {
     }
   }
 
+  void _showEditListeDialog(BuildContext context, WidgetRef ref, Liste liste) {
+    final controller = TextEditingController(text: liste.titre);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modifier le nom de la liste'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Nouveau nom',
+            hintText: 'Ex: Courses semaine 25',
+          ),
+          autofocus: true,
+          onSubmitted: (value) async {
+            if (value.trim().isNotEmpty) {
+              await _updateListeName(context, ref, liste, value.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                await _updateListeName(context, ref, liste, controller.text.trim());
+              }
+            },
+            child: const Text('Modifier'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateListeName(BuildContext context, WidgetRef ref, Liste liste, String nouveauNom) async {
+    try {
+      final user = ref.read(currentUserProvider).value;
+      if (user != null && user.familleActiveId.isNotEmpty) {
+        await ref.read(databaseServiceProvider).updateListeName(user.familleActiveId, liste.superlisteId, liste.id, nouveauNom);
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          _showSnackBar(context, 'Nom de la liste modifié !', Colors.green);
+        }
+      } else {
+        throw Exception('Utilisateur non connecté ou sans famille');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        _showSnackBar(context, 'Erreur lors de la modification: $e', Colors.red);
+      }
+    }
+  }
+
   void _handleListeAction(
     BuildContext context,
     WidgetRef ref,
@@ -429,7 +490,7 @@ class SuperlistePage extends ConsumerWidget {
     try {
       switch (action) {
         case 'edit':
-          print('Edit liste: ${liste.titre}');
+          _showEditListeDialog(context, ref, liste);
           break;
         case 'close':
           await ref.read(databaseServiceProvider).updateListeStatus(
@@ -472,38 +533,124 @@ class SuperlistePage extends ConsumerWidget {
       return;
     }
     final newTitre = '${liste.titre} (copie)';
-    final choix = await showDialog<String>(
+
+    int choixPrincipal = _choixPrincipal;
+    List<bool> detailsChecked = List.from(_detailsChecked);
+
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dupliquer la liste'),
-        content: const Text('Que souhaitez-vous conserver dans la nouvelle liste ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('all'),
-            child: const Text('Conserver tous les éléments'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Dupliquer la liste'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Que souhaitez-vous conserver dans la nouvelle liste ?'),
+              const SizedBox(height: 12),
+              RadioListTile<int>(
+                value: 0,
+                groupValue: choixPrincipal,
+                onChanged: (v) => setState(() => choixPrincipal = v!),
+                title: const Text('Conserver tous les éléments'),
+              ),
+              RadioListTile<int>(
+                value: 1,
+                groupValue: choixPrincipal,
+                onChanged: (v) => setState(() => choixPrincipal = v!),
+                title: const Text('Conserver seulement les éléments non validés (rouge)'),
+              ),
+              RadioListTile<int>(
+                value: 2,
+                groupValue: choixPrincipal,
+                onChanged: (v) => setState(() => choixPrincipal = v!),
+                title: const Text('Conserver seulement les éléments validés (vert)'),
+              ),
+              RadioListTile<int>(
+                value: 3,
+                groupValue: choixPrincipal,
+                onChanged: (v) => setState(() => choixPrincipal = v!),
+                title: const Text('Conserver seulement les éléments sans statut (vierge)'),
+              ),
+              RadioListTile<int>(
+                value: 4,
+                groupValue: choixPrincipal,
+                onChanged: (v) => setState(() => choixPrincipal = v!),
+                title: const Text('Conserver les éléments non validés et sans statut'),
+              ),
+              const SizedBox(height: 16),
+              const Text('Détails des éléments :'),
+              CheckboxListTile(
+                value: detailsChecked[0],
+                onChanged: (v) => setState(() => detailsChecked[0] = v!),
+                title: const Text('Catégorie'),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                value: detailsChecked[1],
+                onChanged: (v) => setState(() => detailsChecked[1] = v!),
+                title: const Text('Quantité'),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                value: detailsChecked[2],
+                onChanged: (v) => setState(() => detailsChecked[2] = v!),
+                title: const Text('Commentaire'),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop('not_validated'),
-            child: const Text('Conserver seulement les éléments non validés'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Dupliquer'),
+            ),
+          ],
+        ),
       ),
     );
-    if (choix == null) return;
+    if (result != true) return;
+    // Mémoriser les choix pour la prochaine fois
+    _choixPrincipal = choixPrincipal;
+    _detailsChecked = List.from(detailsChecked);
+
+    // Filtrage des éléments selon le choix principal
     List<Tag> elementsADupliquer;
-    if (choix == 'all') {
-      elementsADupliquer = List.from(liste.elements);
-    } else {
-      elementsADupliquer = liste.elements.where((e) => !e.like).toList();
+    switch (choixPrincipal) {
+      case 1:
+        elementsADupliquer = liste.elements.where((e) => e.dislike).toList(); // non validés (rouge)
+        break;
+      case 2:
+        elementsADupliquer = liste.elements.where((e) => e.like).toList(); // validés (vert)
+        break;
+      case 3:
+        elementsADupliquer = liste.elements.where((e) => !e.like && !e.dislike).toList(); // sans statut
+        break;
+      case 4:
+        elementsADupliquer = liste.elements.where((e) => e.dislike || (!e.like && !e.dislike)).toList(); // non validés OU sans statut
+        break;
+      case 0:
+      default:
+        elementsADupliquer = List.from(liste.elements);
+        break;
     }
-    // Réinitialiser les likes/dislikes sur tous les éléments dupliqués
+    // Appliquer les détails à dupliquer
     elementsADupliquer = elementsADupliquer
         .map((e) => Tag(
               id: e.id,
               nom: e.nom,
-              categorieId: e.categorieId,
+              categorieId: detailsChecked[0] ? e.categorieId : '',
               like: false,
               dislike: false,
+              quantite: detailsChecked[1] ? e.quantite : null,
+              commentaire: detailsChecked[2] ? e.commentaire : null,
             ))
         .toList();
     await ref.read(databaseServiceProvider).createListe(

@@ -78,12 +78,16 @@ class CategoriesPage extends ConsumerWidget {
                       );
                     }
 
-                    return ReorderableGridView.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      padding: const EdgeInsets.all(16),
-                      children: categories.map((categorie) => _buildCategoryCard(context, ref, categorie, isAdminOrOwner)).toList(),
+                    return ReorderableGridView.builder(
+                      itemCount: categories.length,
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 180, // Largeur max d'une tuile (plus petit)
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 0.95, // Ajuste la forme
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      itemBuilder: (context, index) => _buildCategoryCard(context, ref, categories[index], isAdminOrOwner),
                       onReorder: isAdminOrOwner
                           ? (oldIndex, newIndex) => _reorderCategories(context, ref, categories, oldIndex, newIndex)
                           : (oldIndex, newIndex) {},
@@ -98,32 +102,33 @@ class CategoriesPage extends ConsumerWidget {
   Widget _buildCategoryCard(BuildContext context, WidgetRef ref, Categorie categorie, bool isAdminOrOwner) {
     return Card(
       key: ValueKey(categorie.id),
+      margin: const EdgeInsets.all(4),
       child: InkWell(
         onTap: isAdminOrOwner ? () => _showEditCategoryDialog(context, ref, categorie) : null,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.category,
-                size: 48,
+                size: 32,
                 color: Colors.green[600],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 categorie.nom,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 'Ordre: ${categorie.ordre + 1}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Colors.grey[600],
                 ),
               ),

@@ -5,6 +5,8 @@ class Tag {
   final String categorieId;
   final bool like;
   final bool dislike;
+  final String? quantite;
+  final String? commentaire;
 
   Tag({
     required this.id,
@@ -12,6 +14,8 @@ class Tag {
     required this.categorieId,
     this.like = false,
     this.dislike = false,
+    this.quantite,
+    this.commentaire,
   });
 
   factory Tag.fromMap(Map<String, dynamic> data) => Tag(
@@ -20,6 +24,8 @@ class Tag {
         categorieId: data['categorieId'] ?? '',
         like: data['like'] ?? false,
         dislike: data['dislike'] ?? false,
+        quantite: data['quantite'],
+        commentaire: data['commentaire'],
       );
 
   Map<String, dynamic> toMap() => {
@@ -28,5 +34,7 @@ class Tag {
         'categorieId': categorieId,
         'like': like,
         'dislike': dislike,
+        if (quantite != null) 'quantite': quantite,
+        if (commentaire != null) 'commentaire': commentaire,
       };
 } 

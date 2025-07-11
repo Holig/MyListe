@@ -75,6 +75,7 @@ dependencies:
   url_launcher: ^6.2.6
   flutter_native_splash: ^2.3.10
   flutter_launcher_icons: ^0.13.1
+  flutter_typeahead: ^5.2.0
 
 dev_dependencies:
   flutter_test:
@@ -170,3 +171,7 @@ flutter_icons:
     image_path: assets/icons/icon_myliste.ico
     background_color: "#F7F2FA"
     theme_color: "#F7F2FA"
+
+dependency_overrides:
+  mobile_scanner:
+    path: ./fake_mobile_scanner

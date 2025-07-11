@@ -4,7 +4,11 @@ import 'package:my_liste/services/database_service.dart';
 import 'package:my_liste/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+// On importe mobile_scanner uniquement si ce n'est pas le web
+// ignore: uri_does_not_exist
+import 'package:mobile_scanner/mobile_scanner.dart'
+    if (dart.library.html) 'package:my_liste/pages/qr_scanner_stub.dart';
 
 class JoinFamilyFromLinkPage extends ConsumerStatefulWidget {
   final String code;
@@ -71,7 +75,7 @@ class _JoinFamilyFromLinkPageState extends ConsumerState<JoinFamilyFromLinkPage>
                 autofocus: true,
               ),
               const SizedBox(height: 12),
-              if (isMobile)
+              if (isMobile && !kIsWeb)
                 ElevatedButton.icon(
                   onPressed: _scanQrCode,
                   icon: const Icon(Icons.qr_code_scanner),
@@ -79,6 +83,14 @@ class _JoinFamilyFromLinkPageState extends ConsumerState<JoinFamilyFromLinkPage>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
+                  ),
+                ),
+              if (!isMobile || kIsWeb)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Le scan de QR code n\'est disponible que sur mobile.',
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ),
               if (_error != null)

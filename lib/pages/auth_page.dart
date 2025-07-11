@@ -105,14 +105,14 @@ class _AuthPageState extends ConsumerState<AuthPage> {
             ),
           ),
           Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                     Column(
                       children: [
                         Image.asset(
@@ -120,56 +120,56 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           height: 240,
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                Text(
                           'Organisez vos listes en famille',
                           style: TextStyle(fontSize: 16, color: Colors.black87),
-                          textAlign: TextAlign.center,
-                        ),
+                  textAlign: TextAlign.center,
+                ),
                         const SizedBox(height: 24),
                       ],
                     ),
-                    TextFormField(
-                      controller: emailController,
+                TextFormField(
+                  controller: emailController,
                       decoration: InputDecoration(
-                        labelText: 'Adresse e-mail',
+                    labelText: 'Adresse e-mail',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.email),
                         filled: true,
                         fillColor: Theme.of(context).brightness == Brightness.dark
                             ? Colors.black.withOpacity(0.7)
                             : Colors.white.withOpacity(0.85),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Veuillez entrer votre adresse e-mail.';
                         }
                         if (!value.contains('@') || !value.contains('.')) {
-                          return 'Veuillez entrer une adresse e-mail valide.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: passwordController,
+                      return 'Veuillez entrer une adresse e-mail valide.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: passwordController,
                       decoration: InputDecoration(
-                        labelText: 'Mot de passe',
+                    labelText: 'Mot de passe',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock),
                         filled: true,
                         fillColor: Theme.of(context).brightness == Brightness.dark
                             ? Colors.black.withOpacity(0.7)
                             : Colors.white.withOpacity(0.85),
-                      ),
-                      obscureText: true,
-                      validator: (value) {
+                  ),
+                  obscureText: true,
+                  validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Veuillez entrer votre mot de passe.';
                         }
                         if (value.length < 6) {
-                          return 'Le mot de passe doit contenir au moins 6 caractères.';
-                        }
+                      return 'Le mot de passe doit contenir au moins 6 caractères.';
+                    }
                         // Validation supplémentaire pour l'inscription
                         if (!isLogin) {
                           if (value.length < 8) {
@@ -182,9 +182,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                             return 'Le mot de passe doit contenir au moins un chiffre.';
                           }
                         }
-                        return null;
-                      },
-                    ),
+                    return null;
+                  },
+                ),
                     // Ajoute le lien mot de passe oublié (seulement en mode connexion)
                     if (isLogin) ...[
                       Align(
@@ -244,47 +244,47 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 24),
-                    if (isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      ElevatedButton(
-                        onPressed: submit,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: Text(isLogin ? 'Se connecter' : 'S\'inscrire'),
-                      ),
-                    const SizedBox(height: 16),
-                    const Row(
-                      children: [
-                        Expanded(child: Divider()),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text('OU'),
-                        ),
-                        Expanded(child: Divider()),
-                      ],
+                const SizedBox(height: 24),
+                if (isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  ElevatedButton(
+                    onPressed: submit,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    const SizedBox(height: 16),
-                    if (isLoading)
-                      const SizedBox.shrink()
-                    else
-                      Center(child: buildGoogleButton(context, ref)),
-                    TextButton(
-                      onPressed: isLoading ? null : () {
-                        ref.read(isLoginProvider.notifier).state = !isLogin;
-                      },
-                      child: Text(
-                        isLogin
-                            ? 'Pas de compte ? S\'inscrire'
-                            : 'Déjà un compte ? Se connecter',
-                      ),
+                    child: Text(isLogin ? 'Se connecter' : 'S\'inscrire'),
+                  ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text('OU'),
                     ),
+                    Expanded(child: Divider()),
                   ],
                 ),
-              ),
+                const SizedBox(height: 16),
+                if (isLoading)
+                  const SizedBox.shrink()
+                else
+                      Center(child: buildGoogleButton(context, ref)),
+                TextButton(
+                  onPressed: isLoading ? null : () {
+                    ref.read(isLoginProvider.notifier).state = !isLogin;
+                  },
+                  child: Text(
+                    isLogin
+                        ? 'Pas de compte ? S\'inscrire'
+                        : 'Déjà un compte ? Se connecter',
+                  ),
+                ),
+              ],
             ),
+          ),
+        ),
           ),
         ],
       ),

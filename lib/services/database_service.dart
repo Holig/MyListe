@@ -618,6 +618,17 @@ class DatabaseService {
     final familleRef = _db.collection('familles').doc(familleId);
     await familleRef.update({'customGradients': gradients});
   }
+
+  Future<void> updateListeName(String familleId, String superlisteId, String listeId, String nouveauNom) async {
+    final listeRef = _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(listeId);
+    await listeRef.update({'titre': nouveauNom});
+  }
 }
 
 // --- PROVIDERS RIVERPOD ---

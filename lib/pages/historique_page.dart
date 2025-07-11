@@ -147,6 +147,37 @@ class HistoriquePage extends ConsumerWidget {
         final nomCatAvant = categorieMap?[action.ancienneValeur ?? ''] ?? action.ancienneValeur ?? '';
         final nomCatApres = categorieMap?[action.nouvelleValeur ?? ''] ?? action.nouvelleValeur ?? '';
         return 'Changement de catégorie de "${action.elementNom}" : "$nomCatAvant" → "$nomCatApres"';
+      case 'modification_details':
+        // ancienneValeur et nouvelleValeur sont de la forme "quantite|commentaire"
+        final avant = (action.ancienneValeur ?? '').split('|');
+        final apres = (action.nouvelleValeur ?? '').split('|');
+        final quantiteAvant = avant.isNotEmpty ? avant[0] : '';
+        final commentaireAvant = avant.length > 1 ? avant[1] : '';
+        final quantiteApres = apres.isNotEmpty ? apres[0] : '';
+        final commentaireApres = apres.length > 1 ? apres[1] : '';
+        final List<String> changements = [];
+        if (quantiteAvant != quantiteApres) {
+          if (quantiteAvant.isEmpty && quantiteApres.isNotEmpty) {
+            changements.add('Ajout quantité : "$quantiteApres"');
+          } else if (quantiteAvant.isNotEmpty && quantiteApres.isEmpty) {
+            changements.add('Suppression quantité : "$quantiteAvant"');
+          } else {
+            changements.add('Quantité : "$quantiteAvant" → "$quantiteApres"');
+          }
+        }
+        if (commentaireAvant != commentaireApres) {
+          if (commentaireAvant.isEmpty && commentaireApres.isNotEmpty) {
+            changements.add('Ajout commentaire : "$commentaireApres"');
+          } else if (commentaireAvant.isNotEmpty && commentaireApres.isEmpty) {
+            changements.add('Suppression commentaire : "$commentaireAvant"');
+          } else {
+            changements.add('Commentaire : "$commentaireAvant" → "$commentaireApres"');
+          }
+        }
+        if (changements.isEmpty) {
+          return 'Modification de détails sur "${action.elementNom}"';
+        }
+        return 'Modification de "${action.elementNom}"\n' + changements.join(' · ');
       default:
         return action.type;
     }

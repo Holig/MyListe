@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import 'package:my_liste/services/auth_service.dart';
 import '../models/historique_action.dart';
 import 'historique_page.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 
 class ListeDetailPage extends ConsumerWidget {
   final String superlisteId;
@@ -98,48 +99,55 @@ class ListeDetailPage extends ConsumerWidget {
       future: futureSuggestions,
       builder: (context, snapshot) {
         final suggestions = snapshot.data ?? [];
-        final uniqueSuggestions = suggestions
-            .map((e) => e.nom.trim())
-            .where((nom) => nom.isNotEmpty)
-            .toSet()
-            .toList();
+        // Normalisation des noms pour éviter les doublons (trim, minuscule)
+        final Map<String, String> normalizedToOriginal = {};
+        for (final tag in suggestions) {
+          final normalized = tag.nom.trim().toLowerCase();
+          if (normalized.isNotEmpty && !normalizedToOriginal.containsKey(normalized)) {
+            normalizedToOriginal[normalized] = tag.nom.trim();
+          }
+        }
+        final uniqueSuggestions = normalizedToOriginal.values.toList();
         // Associer à chaque nom la dernière catégorie utilisée
         final Map<String, String> lastCategorieByNom = {};
         for (final tag in suggestions) {
           lastCategorieByNom[tag.nom.trim()] = tag.categorieId;
         }
-        return Container(
+        // --- Autocomplétion avec flutter_typeahead ---
+        final TextEditingController _typeAheadController = TextEditingController();
+        final FocusNode _typeAheadFocusNode = FocusNode();
+        return Padding(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.grey[900]
-                : Colors.grey[50],
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey[800]!
-                    : Colors.grey[300]!,
-              ),
-            ),
-          ),
           child: Row(
             children: [
               Expanded(
-                child: Autocomplete<String>(
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text.isEmpty) {
-                      return const Iterable<String>.empty();
-                    }
-                    return uniqueSuggestions.where((option) =>
-                        option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                child: TypeAheadField<Tag>(
+                  controller: _typeAheadController,
+                  focusNode: _typeAheadFocusNode,
+                  suggestionsCallback: (pattern) {
+                    final input = pattern.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+                    if (input.isEmpty) return [];
+                    return suggestions
+                        .where((tag) => tag.nom.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ').contains(input))
+                        .toList();
                   },
-                  fieldViewBuilder: (context, _, focusNode, onFieldSubmitted) {
+                  itemBuilder: (context, tag) {
+                    return ListTile(
+                      title: Text(tag.nom),
+                    );
+                  },
+                  onSelected: (tag) {
+                    _addElement(context, ref, liste, tag.nom, tag.categorieId);
+                    _typeAheadController.clear();
+                    _typeAheadFocusNode.requestFocus();
+                  },
+                  emptyBuilder: (context) => const SizedBox.shrink(),
+                  builder: (context, controller, focusNode) {
                     return TextField(
-                      controller: textController,
+                      controller: controller,
                       focusNode: focusNode,
                       decoration: InputDecoration(
                         hintText: 'Ajouter un élément...',
-                        prefixIcon: const Icon(Icons.add),
                         border: const OutlineInputBorder(),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         filled: true,
@@ -153,46 +161,50 @@ class ListeDetailPage extends ConsumerWidget {
                         ),
                       ),
                       onSubmitted: (value) {
-                        final toAdd = lastSelected ?? value.trim();
+                        final toAdd = value.trim();
                         if (toAdd.isNotEmpty) {
-                          final catId = lastCategorieByNom[toAdd] ?? '';
+                          // Chercher le Tag correspondant si c'est une suggestion existante
+                          final tag = suggestions.firstWhere(
+                            (t) => t.nom.trim().toLowerCase() == toAdd.toLowerCase(),
+                            orElse: () => Tag(id: '', nom: toAdd, categorieId: ''),
+                          );
+                          final catId = tag.categorieId;
                           _addElement(context, ref, liste, toAdd, catId);
-                          textController.clear();
-                          lastSelected = null;
+                          controller.clear();
+                          focusNode.requestFocus();
                         }
                       },
-                      onChanged: (_) {
-                        lastSelected = null;
-                      },
                     );
-                  },
-                  onSelected: (String selection) {
-                    final catId = lastCategorieByNom[selection] ?? '';
-                    _addElement(context, ref, liste, selection, catId);
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      // Vide le champ après sélection
-                      final field = FocusScope.of(context).focusedChild?.context?.widget;
-                      if (field is TextField) {
-                        field.controller?.clear();
-                      }
-                    });
-                    lastSelected = null;
                   },
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                onPressed: () {
-                  final toAdd = lastSelected ?? textController.text.trim();
-                  if (toAdd.isNotEmpty) {
-                    final catId = lastCategorieByNom[toAdd] ?? '';
-                    _addElement(context, ref, liste, toAdd, catId);
-                    textController.clear();
-                    lastSelected = null;
-                  }
-                },
-                icon: const Icon(Icons.add_circle),
-                color: Colors.green,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    final toAdd = _typeAheadController.text.trim();
+                    if (toAdd.isNotEmpty) {
+                      final tag = suggestions.firstWhere(
+                        (t) => t.nom.trim().toLowerCase() == toAdd.toLowerCase(),
+                        orElse: () => Tag(id: '', nom: toAdd, categorieId: ''),
+                      );
+                      final catId = tag.categorieId;
+                      _addElement(context, ref, liste, toAdd, catId);
+                      _typeAheadController.clear();
+                      _typeAheadFocusNode.requestFocus();
+                    }
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: const Icon(Icons.add, color: Colors.white),
+                  ),
+                ),
               ),
             ],
           ),
@@ -287,34 +299,49 @@ class ListeDetailPage extends ConsumerWidget {
   ) {
     final isLiked = element.like;
     final isDisliked = element.dislike;
-    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       color: isLiked
           ? (Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1B5E20) // vert foncé
+              ? const Color(0xFF1B5E20)
               : Colors.green[50])
           : isDisliked
               ? (Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFFB71C1C) // rouge foncé
+                  ? const Color(0xFFB71C1C)
                   : Colors.red[50])
               : null,
       child: ListTile(
-        title: Text(
-          element.nom,
-          style: TextStyle(
-            decoration: isLiked ? TextDecoration.lineThrough : null,
-            color: (Theme.of(context).brightness == Brightness.dark && (isLiked || isDisliked))
-                ? Colors.white
-                : isLiked
-                    ? Colors.grey[600]
-                    : null,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              element.nom,
+              style: TextStyle(
+                decoration: isLiked ? TextDecoration.lineThrough : null,
+                color: (Theme.of(context).brightness == Brightness.dark && (isLiked || isDisliked))
+                    ? Colors.white
+                    : isLiked
+                        ? Colors.grey[600]
+                        : null,
+              ),
+            ),
+            if ((element.quantite != null && element.quantite!.isNotEmpty) ||
+                (element.commentaire != null && element.commentaire!.isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.only(top: 2.0),
+                child: Text(
+                  [
+                    if (element.quantite != null && element.quantite!.isNotEmpty) element.quantite,
+                    if (element.commentaire != null && element.commentaire!.isNotEmpty) element.commentaire,
+                  ].whereType<String>().join(' · '),
+                  style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+                ),
+              ),
+          ],
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Bouton Like
             IconButton(
               onPressed: () => _toggleLike(context, ref, liste, element),
               icon: Icon(
@@ -323,7 +350,6 @@ class ListeDetailPage extends ConsumerWidget {
               ),
               tooltip: 'Trouvé',
             ),
-            // Bouton Dislike
             IconButton(
               onPressed: () => _toggleDislike(context, ref, liste, element),
               icon: Icon(
@@ -332,7 +358,6 @@ class ListeDetailPage extends ConsumerWidget {
               ),
               tooltip: 'Non trouvé',
             ),
-            // Menu contextuel
             PopupMenuButton<String>(
               onSelected: (value) => _handleElementAction(context, ref, liste, element, value),
               itemBuilder: (context) => [
@@ -429,6 +454,8 @@ class ListeDetailPage extends ConsumerWidget {
         categorieId: element.categorieId,
         like: !element.like,
         dislike: false, // Désactiver dislike si on like
+        quantite: element.quantite,
+        commentaire: element.commentaire,
       );
       await ref.read(databaseServiceProvider).updateElementInListe(
         user.familleActiveId,
@@ -474,6 +501,8 @@ class ListeDetailPage extends ConsumerWidget {
         categorieId: element.categorieId,
         like: false, // Désactiver like si on dislike
         dislike: !element.dislike,
+        quantite: element.quantite,
+        commentaire: element.commentaire,
       );
       await ref.read(databaseServiceProvider).updateElementInListe(
         user.familleActiveId,
@@ -528,6 +557,8 @@ class ListeDetailPage extends ConsumerWidget {
     Tag element,
   ) {
     final controller = TextEditingController(text: element.nom);
+    final quantiteController = TextEditingController(text: element.quantite ?? '');
+    final commentaireController = TextEditingController(text: element.commentaire ?? '');
     final categories = ref.read(categoriesProvider(superlisteId)).value ?? [];
     String selectedCategorieId = element.categorieId;
     showDialog(
@@ -567,6 +598,21 @@ class ListeDetailPage extends ConsumerWidget {
                   });
                 },
               ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: quantiteController,
+                decoration: const InputDecoration(
+                  labelText: 'Quantité (optionnel)',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: commentaireController,
+                decoration: const InputDecoration(
+                  labelText: 'Commentaire (optionnel)',
+                ),
+                maxLines: 2,
+              ),
             ],
           ),
           actions: [
@@ -577,7 +623,16 @@ class ListeDetailPage extends ConsumerWidget {
             ElevatedButton(
               onPressed: () async {
                 if (controller.text.trim().isNotEmpty) {
-                  await _updateElementWithCategorie(context, ref, liste, element, controller.text.trim(), selectedCategorieId);
+                  await _updateElementWithCategorie(
+                    context,
+                    ref,
+                    liste,
+                    element,
+                    controller.text.trim(),
+                    selectedCategorieId,
+                    quantiteController.text.trim().isEmpty ? null : quantiteController.text.trim(),
+                    commentaireController.text.trim().isEmpty ? null : commentaireController.text.trim(),
+                  );
                   if (context.mounted) Navigator.of(context).pop();
                 }
               },
@@ -596,6 +651,8 @@ class ListeDetailPage extends ConsumerWidget {
     Tag element,
     String newNom,
     String newCategorieId,
+    [String? newQuantite,
+    String? newCommentaire,]
   ) async {
     try {
       final user = ref.read(currentUserProvider).value;
@@ -611,6 +668,8 @@ class ListeDetailPage extends ConsumerWidget {
         categorieId: newCategorieId,
         like: element.like,
         dislike: element.dislike,
+        quantite: newQuantite,
+        commentaire: newCommentaire,
       );
       await ref.read(databaseServiceProvider).updateElementInListe(
         user.familleActiveId,
@@ -650,6 +709,23 @@ class ListeDetailPage extends ConsumerWidget {
             elementNom: newNom,
             ancienneValeur: element.categorieId,
             nouvelleValeur: newCategorieId,
+            date: DateTime.now(),
+          ),
+        );
+      }
+      // Historique modification quantité/commentaire
+      if (element.quantite != newQuantite || element.commentaire != newCommentaire) {
+        await ref.read(databaseServiceProvider).addHistoriqueAction(
+          familleId: user.familleActiveId,
+          superlisteId: superlisteId,
+          listeId: listeId,
+          action: HistoriqueAction(
+            id: '',
+            userId: user.email,
+            type: 'modification_details',
+            elementNom: newNom,
+            ancienneValeur: '${element.quantite ?? ''}|${element.commentaire ?? ''}',
+            nouvelleValeur: '${newQuantite ?? ''}|${newCommentaire ?? ''}',
             date: DateTime.now(),
           ),
         );

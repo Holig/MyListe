@@ -1,0 +1,8 @@
+name: mobile_scanner
+description: "Stub package mobile_scanner pour le build web"
+version: 0.0.1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter 
