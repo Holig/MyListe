@@ -84,66 +84,18 @@ class CategoriesPage extends ConsumerWidget {
                         ),
                       );
                     }
-                    if (isMobile(context)) {
-                      // Affichage mobile : pas de drag, boutons ↑↓
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(8),
-                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 180,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 0.95,
-                        ),
-                        itemCount: categories.length,
-                        itemBuilder: (context, index) {
-                          final cat = categories[index];
-                          return Stack(
-                            children: [
-                              _buildCategoryCard(context, ref, cat, isAdminOrOwner),
-                              if (isAdminOrOwner)
-                                Positioned(
-                                  right: 0,
-                                  top: 0,
-                                  child: Column(
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.arrow_upward, size: 18),
-                                        tooltip: 'Monter',
-                                        onPressed: index > 0
-                                            ? () => _reorderCategories(context, ref, categories, index, index - 1)
-                                            : null,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.arrow_downward, size: 18),
-                                        tooltip: 'Descendre',
-                                        onPressed: index < categories.length - 1
-                                            ? () => _reorderCategories(context, ref, categories, index, index + 1)
-                                            : null,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      );
-                    } else {
-                      // Desktop/web : drag & drop
-                      return ReorderableGridView.builder(
-                        itemCount: categories.length,
-                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 180,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 0.95,
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        itemBuilder: (context, index) => _buildCategoryCard(context, ref, categories[index], isAdminOrOwner),
-                        onReorder: isAdminOrOwner
-                            ? (oldIndex, newIndex) => _reorderCategories(context, ref, categories, oldIndex, newIndex)
-                            : (oldIndex, newIndex) {},
-                      );
-                    }
+                    // Affichage unique : GridView avec flèches ↑↓ partout
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 180,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 0.85, // Plus carré, même largeur/hauteur
+                      ),
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) => _buildCategoryCard(context, ref, categories[index], isAdminOrOwner, index, categories.length, categories),
+                    );
                   },
                 ),
               );
@@ -151,41 +103,60 @@ class CategoriesPage extends ConsumerWidget {
           );
   }
 
-  Widget _buildCategoryCard(BuildContext context, WidgetRef ref, Categorie categorie, bool isAdminOrOwner) {
+  Widget _buildCategoryCard(BuildContext context, WidgetRef ref, Categorie categorie, bool isAdminOrOwner, int index, int total, List<Categorie> categories) {
     return Card(
       key: ValueKey(categorie.id),
       margin: const EdgeInsets.all(4),
-      child: InkWell(
-        onTap: isAdminOrOwner ? () => _showEditCategoryDialog(context, ref, categorie) : null,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.category,
-                size: 32,
-                color: Colors.green[600],
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.category,
+              size: 32,
+              color: Colors.green[600],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              categorie.nom,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 6),
-              Text(
-                categorie.nom,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Ordre: ${categorie.ordre + 1}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
               ),
-              const SizedBox(height: 2),
-              Text(
-                'Ordre: ${categorie.ordre + 1}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                ),
+            ),
+            if (isAdminOrOwner) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_upward, size: 18),
+                    tooltip: 'Monter',
+                    onPressed: index > 0
+                        ? () => _reorderCategories(context, ref, categories, index, index - 1)
+                        : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_downward, size: 18),
+                    tooltip: 'Descendre',
+                    onPressed: index < total - 1
+                        ? () => _reorderCategories(context, ref, categories, index, index + 1)
+                        : null,
+                  ),
+                ],
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
