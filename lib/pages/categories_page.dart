@@ -6,6 +6,13 @@ import 'package:my_liste/services/auth_service.dart';
 import 'package:my_liste/models/categorie.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import '../models/historique_action.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Détection simple du mobile (web ou natif) par la largeur d'écran
+bool isMobile(BuildContext context) {
+  final width = MediaQuery.of(context).size.width;
+  return width < 700;
+}
 
 class CategoriesPage extends ConsumerWidget {
   final String superlisteId;
@@ -77,21 +84,66 @@ class CategoriesPage extends ConsumerWidget {
                         ),
                       );
                     }
-
-                    return ReorderableGridView.builder(
-                      itemCount: categories.length,
-                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 180, // Largeur max d'une tuile (plus petit)
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 0.95, // Ajuste la forme
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      itemBuilder: (context, index) => _buildCategoryCard(context, ref, categories[index], isAdminOrOwner),
-                      onReorder: isAdminOrOwner
-                          ? (oldIndex, newIndex) => _reorderCategories(context, ref, categories, oldIndex, newIndex)
-                          : (oldIndex, newIndex) {},
-                    );
+                    if (isMobile(context)) {
+                      // Affichage mobile : pas de drag, boutons ↑↓
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(8),
+                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 180,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 0.95,
+                        ),
+                        itemCount: categories.length,
+                        itemBuilder: (context, index) {
+                          final cat = categories[index];
+                          return Stack(
+                            children: [
+                              _buildCategoryCard(context, ref, cat, isAdminOrOwner),
+                              if (isAdminOrOwner)
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Column(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.arrow_upward, size: 18),
+                                        tooltip: 'Monter',
+                                        onPressed: index > 0
+                                            ? () => _reorderCategories(context, ref, categories, index, index - 1)
+                                            : null,
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.arrow_downward, size: 18),
+                                        tooltip: 'Descendre',
+                                        onPressed: index < categories.length - 1
+                                            ? () => _reorderCategories(context, ref, categories, index, index + 1)
+                                            : null,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      );
+                    } else {
+                      // Desktop/web : drag & drop
+                      return ReorderableGridView.builder(
+                        itemCount: categories.length,
+                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 180,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 0.95,
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        itemBuilder: (context, index) => _buildCategoryCard(context, ref, categories[index], isAdminOrOwner),
+                        onReorder: isAdminOrOwner
+                            ? (oldIndex, newIndex) => _reorderCategories(context, ref, categories, oldIndex, newIndex)
+                            : (oldIndex, newIndex) {},
+                      );
+                    }
                   },
                 ),
               );
