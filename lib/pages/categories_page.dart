@@ -91,7 +91,7 @@ class CategoriesPage extends ConsumerWidget {
                         maxCrossAxisExtent: 180,
                         mainAxisSpacing: 8,
                         crossAxisSpacing: 8,
-                        childAspectRatio: 0.85, // Plus carré, même largeur/hauteur
+                        childAspectRatio: 0.75, // Plus haut pour laisser la place aux flèches
                       ),
                       itemCount: categories.length,
                       itemBuilder: (context, index) => _buildCategoryCard(context, ref, categories[index], isAdminOrOwner, index, categories.length, categories),
@@ -111,6 +111,7 @@ class CategoriesPage extends ConsumerWidget {
         padding: const EdgeInsets.all(10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Prend toute la largeur
           children: [
             Icon(
               Icons.category,
@@ -118,13 +119,21 @@ class CategoriesPage extends ConsumerWidget {
               color: Colors.green[600],
             ),
             const SizedBox(height: 6),
-            Text(
-              categorie.nom,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+            // Nom de la catégorie avec hauteur fixe pour alignement
+            SizedBox(
+              height: 36, // Ajuste si besoin
+              child: Center(
+                child: Text(
+                  categorie.nom,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 2),
             Text(
@@ -135,25 +144,33 @@ class CategoriesPage extends ConsumerWidget {
               ),
             ),
             if (isAdminOrOwner) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_upward, size: 18),
-                    tooltip: 'Monter',
-                    onPressed: index > 0
-                        ? () => _reorderCategories(context, ref, categories, index, index - 1)
-                        : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_downward, size: 18),
-                    tooltip: 'Descendre',
-                    onPressed: index < total - 1
-                        ? () => _reorderCategories(context, ref, categories, index, index + 1)
-                        : null,
-                  ),
-                ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_upward, size: 24),
+                      tooltip: 'Monter',
+                      onPressed: index > 0
+                          ? () => _reorderCategories(context, ref, categories, index, index - 1)
+                          : null,
+                      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                      padding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_downward, size: 24),
+                      tooltip: 'Descendre',
+                      onPressed: index < total - 1
+                          ? () => _reorderCategories(context, ref, categories, index, index + 1)
+                          : null,
+                      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
