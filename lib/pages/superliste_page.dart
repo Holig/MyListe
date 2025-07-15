@@ -243,110 +243,124 @@ class SuperlistePage extends ConsumerWidget {
   ) {
     final dateFormat = DateFormat('dd/MM/yyyy');
     final formattedDate = dateFormat.format(liste.date);
-    final elementCount = liste.elements.length;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: isDark ? Theme.of(context).colorScheme.surface : isClosed ? Colors.grey[100] : null,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isDark ? Theme.of(context).colorScheme.surface : isClosed ? Colors.grey[400] : Colors.green,
-          child: Icon(
-            isClosed ? Icons.archive : Icons.list_alt,
-            color: Colors.white,
-          ),
-        ),
-        title: Text(
-          liste.titre,
-          style: TextStyle(
-            color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[600] : null,
-            decoration: isClosed ? TextDecoration.lineThrough : null,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Créée le $formattedDate',
+    return FutureBuilder<int>(
+      future: _getElementsCount(ref, liste),
+      builder: (context, snapshot) {
+        final elementCount = snapshot.data ?? 0;
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          color: isDark ? Theme.of(context).colorScheme.surface : isClosed ? Colors.grey[100] : null,
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: isDark ? Theme.of(context).colorScheme.surface : isClosed ? Colors.grey[400] : Colors.green,
+              child: Icon(
+                isClosed ? Icons.archive : Icons.list_alt,
+                color: Colors.white,
+              ),
+            ),
+            title: Text(
+              liste.titre,
               style: TextStyle(
-                color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[500] : Colors.grey[600],
-                fontSize: 12,
+                color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[600] : null,
+                decoration: isClosed ? TextDecoration.lineThrough : null,
               ),
             ),
-            if (elementCount > 0)
-              Text(
-                '$elementCount élément${elementCount > 1 ? 's' : ''}',
-                style: TextStyle(
-                  color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[500] : Colors.grey[600],
-                  fontSize: 12,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Créée le $formattedDate',
+                  style: TextStyle(
+                    color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[500] : Colors.grey[600],
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) => _handleListeAction(context, ref, liste, value),
-          itemBuilder: (context) => [
-            if (!isClosed) ...[
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 8),
-                    Text('Modifier'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'close',
-                child: Row(
-                  children: [
-                    Icon(Icons.archive),
-                    SizedBox(width: 8),
-                    Text('Fermer'),
-                  ],
-                ),
-              ),
-            ] else ...[
-              const PopupMenuItem(
-                value: 'reopen',
-                child: Row(
-                  children: [
-                    Icon(Icons.unarchive),
-                    SizedBox(width: 8),
-                    Text('Rouvrir'),
-                  ],
-                ),
-              ),
-            ],
-            const PopupMenuItem(
-              value: 'duplicate',
-              child: Row(
-                children: [
-                  Icon(Icons.copy),
-                  SizedBox(width: 8),
-                  Text('Dupliquer'),
+                if (elementCount > 0)
+                  Text(
+                    '$elementCount élément${elementCount > 1 ? 's' : ''}',
+                    style: TextStyle(
+                      color: isDark ? Theme.of(context).colorScheme.onSurface : isClosed ? Colors.grey[500] : Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+            onTap: () {
+              context.go('/liste/$id/${liste.id}');
+            },
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) => _handleListeAction(context, ref, liste, value),
+              itemBuilder: (context) => [
+                if (!isClosed) ...[
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit),
+                        SizedBox(width: 8),
+                        Text('Modifier'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'close',
+                    child: Row(
+                      children: [
+                        Icon(Icons.archive),
+                        SizedBox(width: 8),
+                        Text('Fermer'),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  const PopupMenuItem(
+                    value: 'reopen',
+                    child: Row(
+                      children: [
+                        Icon(Icons.unarchive),
+                        SizedBox(width: 8),
+                        Text('Rouvrir'),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
+                const PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(
+                    children: [
+                      Icon(Icons.copy),
+                      SizedBox(width: 8),
+                      Text('Dupliquer'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Supprimer', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Supprimer', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        onTap: () {
-          context.go('/liste/$id/${liste.id}');
-        },
-      ),
+          ),
+        );
+      },
     );
+  }
+
+  Future<int> _getElementsCount(WidgetRef ref, Liste liste) async {
+    final user = ref.read(currentUserProvider).value;
+    if (user == null || user.familleActiveId.isEmpty) return 0;
+    final itemsSnap = await ref.read(databaseServiceProvider)
+        .getElementsStream(user.familleActiveId, liste.superlisteId, liste.id)
+        .first;
+    return itemsSnap.length;
   }
 
   void _showCreateListeDialog(BuildContext context, WidgetRef ref) {
@@ -621,24 +635,29 @@ class SuperlistePage extends ConsumerWidget {
     _choixPrincipal = choixPrincipal;
     _detailsChecked = List.from(detailsChecked);
 
+    // Charger les éléments depuis la sous-collection
+    final elements = await ref.read(databaseServiceProvider)
+        .getElementsStream(user.familleActiveId, liste.superlisteId, liste.id)
+        .first;
+
     // Filtrage des éléments selon le choix principal
     List<Tag> elementsADupliquer;
     switch (choixPrincipal) {
       case 1:
-        elementsADupliquer = liste.elements.where((e) => e.dislike).toList(); // non validés (rouge)
+        elementsADupliquer = elements.where((e) => e.dislike).toList(); // non validés (rouge)
         break;
       case 2:
-        elementsADupliquer = liste.elements.where((e) => e.like).toList(); // validés (vert)
+        elementsADupliquer = elements.where((e) => e.like).toList(); // validés (vert)
         break;
       case 3:
-        elementsADupliquer = liste.elements.where((e) => !e.like && !e.dislike).toList(); // sans statut
+        elementsADupliquer = elements.where((e) => !e.like && !e.dislike).toList(); // sans statut
         break;
       case 4:
-        elementsADupliquer = liste.elements.where((e) => e.dislike || (!e.like && !e.dislike)).toList(); // non validés OU sans statut
+        elementsADupliquer = elements.where((e) => e.dislike || (!e.like && !e.dislike)).toList(); // non validés OU sans statut
         break;
       case 0:
       default:
-        elementsADupliquer = List.from(liste.elements);
+        elementsADupliquer = List.from(elements);
         break;
     }
     // Appliquer les détails à dupliquer

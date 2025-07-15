@@ -214,42 +214,44 @@ class ListeDetailPage extends ConsumerWidget {
   }
 
   Widget _buildElementsList(BuildContext context, WidgetRef ref, Liste liste) {
+    final user = ref.read(currentUserProvider).value;
+    final familleId = user?.familleActiveId ?? '';
     final categoriesAsync = ref.watch(categoriesProvider(superlisteId));
     
     return categoriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Erreur: $err')),
       data: (categories) {
-        // Grouper les éléments par catégorie
-        final elementsByCategory = <String, List<Tag>>{};
-        
-        for (final element in liste.elements) {
-          final categorieId = element.categorieId.isNotEmpty 
-              ? element.categorieId 
-              : 'sans_categorie';
-          elementsByCategory.putIfAbsent(categorieId, () => []).add(element);
-        }
-
-        // Trier les catégories par ordre
-        final sortedCategories = categories.toList()
-          ..sort((a, b) => a.ordre.compareTo(b.ordre));
-
-        return ListView.builder(
-          itemCount: sortedCategories.length + (elementsByCategory.containsKey('sans_categorie') ? 1 : 0),
-          itemBuilder: (context, index) {
-            Categorie? categorie;
-            if (index < sortedCategories.length) {
-              categorie = sortedCategories[index];
-            } else if (elementsByCategory.containsKey('sans_categorie')) {
-              // Catégorie "sans catégorie" à la fin
-              categorie = null;
+        return StreamBuilder<List<Tag>>(
+          stream: ref.read(databaseServiceProvider).getElementsStream(familleId, superlisteId, liste.id),
+          builder: (context, snapshot) {
+            final elements = snapshot.data ?? [];
+            // Grouper les éléments par catégorie
+            final elementsByCategory = <String, List<Tag>>{};
+            for (final element in elements) {
+              final categorieId = element.categorieId.isNotEmpty 
+                  ? element.categorieId 
+                  : 'sans_categorie';
+              elementsByCategory.putIfAbsent(categorieId, () => []).add(element);
             }
-
-            final elements = elementsByCategory[categorie?.id ?? 'sans_categorie'] ?? [];
-            
-            if (elements.isEmpty) return const SizedBox.shrink();
-
-            return _buildCategorySection(context, ref, liste, categorie, elements);
+            // Trier les catégories par ordre
+            final sortedCategories = categories.toList()
+              ..sort((a, b) => a.ordre.compareTo(b.ordre));
+            return ListView.builder(
+              itemCount: sortedCategories.length + (elementsByCategory.containsKey('sans_categorie') ? 1 : 0),
+              itemBuilder: (context, index) {
+                Categorie? categorie;
+                if (index < sortedCategories.length) {
+                  categorie = sortedCategories[index];
+                } else if (elementsByCategory.containsKey('sans_categorie')) {
+                  // Catégorie "sans catégorie" à la fin
+                  categorie = null;
+                }
+                final elements = elementsByCategory[categorie?.id ?? 'sans_categorie'] ?? [];
+                if (elements.isEmpty) return const SizedBox.shrink();
+                return _buildCategorySection(context, ref, liste, categorie, elements);
+              },
+            );
           },
         );
       },

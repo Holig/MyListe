@@ -8,7 +8,7 @@ class Liste {
   final String titre;
   final DateTime date;
   final bool fermee;
-  final List<Tag> elements;
+  // On retire le champ elements
 
   Liste({
     required this.id,
@@ -16,7 +16,6 @@ class Liste {
     required this.titre,
     required this.date,
     required this.fermee,
-    required this.elements,
   });
 
   factory Liste.fromMap(String id, Map<String, dynamic> data) => Liste(
@@ -25,9 +24,6 @@ class Liste {
         titre: data['titre'] ?? '',
         date: (data['date'] as Timestamp).toDate(),
         fermee: data['fermee'] ?? false,
-        elements: (data['elements'] as List<dynamic>? ?? [])
-            .map((e) => Tag.fromMap(e as Map<String, dynamic>))
-            .toList(),
       );
 
   Map<String, dynamic> toMap() => {
@@ -35,6 +31,33 @@ class Liste {
         'titre': titre,
         'date': Timestamp.fromDate(date),
         'fermee': fermee,
-        'elements': elements.map((e) => e.toMap()).toList(),
       };
+
+  /// Nouvelle méthode pour charger les éléments depuis la sous-collection
+  Future<List<Tag>> fetchElements(String familleId) async {
+    final itemsSnap = await FirebaseFirestore.instance
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(id)
+        .collection('items')
+        .get();
+    return itemsSnap.docs.map((d) => Tag.fromMap(d.data())).toList();
+  }
+
+  /// Version stream pour l’UI réactive
+  Stream<List<Tag>> elementsStream(String familleId) {
+    return FirebaseFirestore.instance
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(id)
+        .collection('items')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => Tag.fromMap(d.data())).toList());
+  }
 } 

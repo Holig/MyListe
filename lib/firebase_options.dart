@@ -54,6 +54,7 @@ class DefaultFirebaseOptions {
     authDomain: 'myliste-app.firebaseapp.com',
     storageBucket: 'myliste-app.firebasestorage.app',
     measurementId: 'G-C46GEPE94T',
+    // vapidKey: 'BP1O_M-pEITf_fRWeLCps-cbSE9owxxjBQIhNk_RC-ze0F-NXvqE3sHu9X73o0Rc_gLGBVOiSNmsXFKG6S5udFI',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

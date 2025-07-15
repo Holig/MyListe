@@ -13,6 +13,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:html' as html;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:my_liste/pages/param_notifications_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 // Ajout d'un provider pour forcer le rafraîchissement
 final settingsRefreshProvider = StateProvider<int>((ref) => 0);
@@ -177,11 +180,11 @@ class ParamFamillePage extends ConsumerWidget {
                             builder: (context, ref, _) {
                               final familleAsync = ref.watch(familleProvider);
                               return familleAsync.when(
-                                loading: () => const Center(child: CircularProgressIndicator()),
-                                error: (err, stack) => Center(child: Text('Erreur: $err')),
+                                loading: () => const Text('Chargement famille active...'),
+                                error: (err, stack) => Text('Erreur famille active : $err'),
                                 data: (famille) {
                                   if (famille == null) {
-                                    return const Center(child: Text('Famille non trouvée'));
+                                    return const Text('Famille active non trouvée');
                                   }
                                   final invitationLink = famille.codeInvitation.isNotEmpty
                                     ? _getJoinFamilyUrl(famille.codeInvitation)
@@ -253,6 +256,10 @@ class ParamFamillePage extends ConsumerWidget {
                                             label: const Text('Gérer les membres'),
                                             onPressed: () => context.push('/gerer-membres'),
                                           ),
+                                          const SizedBox(height: 24),
+                                          // Section Notifications dédiée
+                                          // Section notifications optimisée
+                                          NotificationPreferencesWidget(userId: user.id, familleId: famille.id),
                                         ],
                                       ),
                                     ),
@@ -749,6 +756,269 @@ class _EditFamilyDialogState extends State<_EditFamilyDialog> {
           child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Sauvegarder'),
         ),
       ],
+    );
+  }
+}
+
+class _SimpleNotificationSwitch extends StatefulWidget {
+  final String userId;
+  final String familleId;
+  const _SimpleNotificationSwitch({required this.userId, required this.familleId});
+
+  @override
+  State<_SimpleNotificationSwitch> createState() => _SimpleNotificationSwitchState();
+}
+
+class _SimpleNotificationSwitchState extends State<_SimpleNotificationSwitch> {
+  bool? _active;
+  bool _loading = true;
+  String? _error;
+  String? _success;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchState();
+  }
+
+  Future<void> _fetchState() async {
+    setState(() { _loading = true; _error = null; _success = null; });
+    try {
+      final snap = await FirebaseFirestore.instance
+        .collection('familles')
+        .doc(widget.familleId)
+        .collection('notificationsActives')
+        .doc(widget.userId)
+        .get();
+      setState(() {
+        _active = snap.data()?['active'] ?? false;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Erreur lors de la récupération: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setActive(bool val) async {
+    setState(() { _loading = true; _error = null; _success = null; });
+    try {
+      await FirebaseFirestore.instance
+        .collection('familles')
+        .doc(widget.familleId)
+        .collection('notificationsActives')
+        .doc(widget.userId)
+        .set({'active': val});
+      setState(() {
+        _active = val;
+        _loading = false;
+        _success = val ? 'Notifications activées.' : 'Notifications désactivées.';
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Erreur lors de la mise à jour: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      return Card(
+        color: Colors.yellow[50],
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Notifications push (expérimental)', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Activez cette option pour recevoir des notifications pour cette famille (fonctionne sur mobile et PWA, expérimental sur web).'),
+              const SizedBox(height: 16),
+              if (_loading)
+                const CircularProgressIndicator(),
+              if (!_loading)
+                Row(
+                  children: [
+                    const Text('Recevoir les notifications'),
+                    const SizedBox(width: 16),
+                    Switch(
+                      value: _active ?? false,
+                      onChanged: (val) => _setActive(val),
+                    ),
+                  ],
+                ),
+              if (_success != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(_success!, style: const TextStyle(color: Colors.green)),
+                ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                ),
+            ],
+          ),
+        ),
+      );
+    } catch (e, stack) {
+      print('ERREUR build _SimpleNotificationSwitch : $e\n$stack');
+      return Text('ERREUR dans _SimpleNotificationSwitch : $e', style: const TextStyle(color: Colors.red));
+    }
+  }
+}
+
+class NotificationPreferencesWidget extends StatefulWidget {
+  final String userId;
+  final String familleId;
+  const NotificationPreferencesWidget({required this.userId, required this.familleId});
+
+  @override
+  State<NotificationPreferencesWidget> createState() => _NotificationPreferencesWidgetState();
+}
+
+class _NotificationPreferencesWidgetState extends State<NotificationPreferencesWidget> {
+  bool _loading = true;
+  String? _error;
+  String? _success;
+  Map<String, bool> _prefs = {};
+  final List<String> _eventTypes = [
+    'ajout', 'suppression', 'modification', 'validation', 'invitation'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPrefs();
+  }
+
+  Future<void> _fetchPrefs() async {
+    setState(() { _loading = true; _error = null; _success = null; });
+    try {
+      final snap = await FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(widget.userId)
+        .collection('notifications')
+        .doc(widget.familleId)
+        .get();
+      final data = snap.data() ?? {};
+      setState(() {
+        _prefs = {
+          for (var e in _eventTypes) e: data[e] ?? true,
+        };
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Erreur lors de la récupération: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setPref(String event, bool val) async {
+    setState(() { _loading = true; _error = null; _success = null; });
+    try {
+      await FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(widget.userId)
+        .collection('notifications')
+        .doc(widget.familleId)
+        .set({event: val}, SetOptions(merge: true));
+      setState(() {
+        _prefs[event] = val;
+        _loading = false;
+        _success = 'Préférences mises à jour.';
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Erreur lors de la mise à jour: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setAll(bool val) async {
+    setState(() { _loading = true; _error = null; _success = null; });
+    try {
+      final data = { for (var e in _eventTypes) e: val };
+      await FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(widget.userId)
+        .collection('notifications')
+        .doc(widget.familleId)
+        .set(data, SetOptions(merge: true));
+      setState(() {
+        _prefs = Map.from(data);
+        _loading = false;
+        _success = val ? 'Toutes les notifications activées.' : 'Toutes les notifications désactivées.';
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Erreur lors de la mise à jour: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allActive = _prefs.values.every((v) => v);
+    final allInactive = _prefs.values.every((v) => !v);
+    return Card(
+      color: Colors.yellow[50],
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Notifications par famille', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Activez ou désactivez les notifications pour chaque type d’événement dans cette famille.'),
+            const SizedBox(height: 16),
+            if (_loading)
+              const CircularProgressIndicator(),
+            if (!_loading) ...[
+              Row(
+                children: [
+                  const Text('Tout activer/désactiver'),
+                  const SizedBox(width: 16),
+                  Switch(
+                    value: allActive,
+                    onChanged: (val) => _setAll(val),
+                  ),
+                ],
+              ),
+              const Divider(),
+              ..._eventTypes.map((event) => Row(
+                children: [
+                  Expanded(child: Text('Notification "$event"')),
+                  Switch(
+                    value: _prefs[event] ?? true,
+                    onChanged: (val) => _setPref(event, val),
+                  ),
+                ],
+              )),
+            ],
+            if (_success != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(_success!, style: const TextStyle(color: Colors.green)),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+          ],
+        ),
+      ),
     );
   }
 } 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -29,6 +30,7 @@ import 'pages/categories_page.dart';
 // Import des services
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
+import 'services/migration_items_to_subcollection.dart';
 
 // Import des modèles
 import 'models/utilisateur.dart';
@@ -38,12 +40,18 @@ import 'models/liste.dart';
 import 'models/categorie.dart';
 import 'models/tag.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform, // Décommenté
   );
+
+  // --- MIGRATION terminée, bloc retiré ---
+
+  await _initNotifications();
 
   // Gestion des redirections Google Sign-In sur le web
   if (kIsWeb) {
@@ -61,12 +69,37 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
+Future<void> _initNotifications() async {
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+  await messaging.requestPermission();
+  // Gère la réception des notifications en premier plan
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    // Affiche une snackbar simple
+    final context = navigatorKey.currentContext;
+    if (context != null && message.notification != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message.notification!.title ?? 'Notification reçue')),
+      );
+    }
+  });
+  // Gère la réception en arrière-plan/terminé (optionnel)
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    final context = navigatorKey.currentContext;
+    if (context != null && message.notification != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Notification ouverte: ${message.notification!.title}')),
+      );
+    }
+  });
+}
+
 // Provider pour GoRouter
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateChangesProvider);
   final userProvider = ref.watch(currentUserProvider);
 
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: '/auth',
     refreshListenable: GoRouterRefreshStream([
       ref.watch(authStateChangesProvider.stream),

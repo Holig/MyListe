@@ -1,16 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_liste/models/utilisateur.dart';
 import 'database_service.dart'; // Importer le service de base de données
 import 'package:flutter/foundation.dart';
+import 'google_sign_in_impl_web.dart'
+    if (dart.library.io) 'google_sign_in_impl_mobile.dart';
 
 class AuthService {
   final FirebaseAuth _auth;
-  final GoogleSignIn _googleSignIn;
   final DatabaseService _dbService;
 
-  AuthService(this._auth, this._googleSignIn, this._dbService);
+  AuthService(this._auth, this._dbService);
 
   /// Getter pour l'utilisateur actuellement authentifié
   User? get currentUser => _auth.currentUser;
@@ -89,68 +89,11 @@ class AuthService {
 
   /// Connexion avec Google
   Future<UserCredential> signInWithGoogle() async {
-    try {
-      if (kIsWeb) {
-        // Sur le web, utiliser le flux popup standard de Firebase
-        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        googleProvider.addScope('email');
-        googleProvider.addScope('profile');
-        
-        final userCredential = await _auth.signInWithPopup(googleProvider);
-        await _dbService.upsertUser(userCredential.user!);
-        return userCredential;
-      } else {
-        // Mobile natif (Android/iOS)
-        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-        if (googleUser == null) {
-          throw Exception('Connexion avec Google annulée.');
-        }
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-        final AuthCredential credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        final userCredential = await _auth.signInWithCredential(credential);
-        await _dbService.upsertUser(userCredential.user!);
-        return userCredential;
-      }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'account-exists-with-different-credential':
-          errorMessage = 'Un compte existe déjà avec cette adresse e-mail mais avec une méthode de connexion différente.';
-          break;
-        case 'invalid-credential':
-          errorMessage = 'Les informations d\'identification Google sont invalides.';
-          break;
-        case 'operation-not-allowed':
-          errorMessage = 'La connexion avec Google n\'est pas activée.';
-          break;
-        case 'user-disabled':
-          errorMessage = 'Ce compte a été désactivé.';
-          break;
-        case 'user-not-found':
-          errorMessage = 'Aucun utilisateur trouvé avec ces informations d\'identification.';
-          break;
-        case 'popup-closed-by-user':
-          errorMessage = 'La fenêtre de connexion Google a été fermée.';
-          break;
-        case 'popup-blocked':
-          errorMessage = 'La fenêtre de connexion Google a été bloquée par le navigateur.';
-          break;
-        default:
-          errorMessage = 'Erreur de connexion avec Google: ${e.message}';
-      }
-      throw Exception(errorMessage);
-    } catch (e) {
-      print('Erreur Google Sign-In: $e');
-      throw Exception("Erreur de connexion avec Google. Veuillez réessayer.");
-    }
+    return await signInWithGooglePlatform(_auth, _dbService);
   }
 
   /// Déconnexion
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
@@ -182,23 +125,10 @@ class AuthService {
 /// Provider pour l'instance de FirebaseAuth
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 
-/// Provider pour l'instance de GoogleSignIn
-final googleSignInProvider = Provider<GoogleSignIn>((ref) {
-  if (kIsWeb) {
-    return GoogleSignIn(
-      clientId: '4406014822-m7kn43efe9uj2gq60j9pdjags7m1ahc2.apps.googleusercontent.com',
-      // Ajoutez ici d'autres options si besoin
-    );
-  } else {
-    return GoogleSignIn();
-  }
-});
-
 /// Provider pour notre AuthService
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(
     ref.watch(firebaseAuthProvider),
-    ref.watch(googleSignInProvider),
     ref.watch(databaseServiceProvider), // Injecter DatabaseService
   );
 });

@@ -167,7 +167,7 @@ class DatabaseService {
     await superlisteRef.set(nouvelleSuperliste.toMap());
   }
 
-  /// Crée une nouvelle liste dans une superliste.
+  /// Crée une nouvelle liste dans une superliste (adapté pour sous-collection)
   Future<void> createListe(String familleId, String superlisteId, String titre, {List<Tag>? elements}) async {
     final listeRef = _db
         .collection('familles')
@@ -176,17 +176,21 @@ class DatabaseService {
         .doc(superlisteId)
         .collection('listes')
         .doc();
-    
     final nouvelleListe = Liste(
       id: listeRef.id,
       superlisteId: superlisteId,
       titre: titre,
       date: DateTime.now(),
       fermee: false,
-      elements: elements ?? [],
     );
-    
     await listeRef.set(nouvelleListe.toMap());
+    // Ajout des éléments dans la sous-collection
+    if (elements != null && elements.isNotEmpty) {
+      final itemsRef = listeRef.collection('items');
+      for (final element in elements) {
+        await itemsRef.doc(element.id).set(element.toMap());
+      }
+    }
   }
 
   /// Met à jour l'état d'une liste (ouverte/fermée).
@@ -322,67 +326,48 @@ class DatabaseService {
         .set(tag.toMap());
   }
 
-  /// Ajoute un élément à une liste.
+  /// Ajoute un élément à une liste (nouvelle version sous-collection)
   Future<void> addElementToListe(String familleId, String superlisteId, String listeId, Tag element) async {
-    final listeRef = _db
+    final itemsRef = _db
         .collection('familles')
         .doc(familleId)
         .collection('superlistes')
         .doc(superlisteId)
         .collection('listes')
-        .doc(listeId);
-    
-    await listeRef.update({
-      'elements': FieldValue.arrayUnion([element.toMap()])
-    });
+        .doc(listeId)
+        .collection('items');
+    await itemsRef.doc(element.id).set(element.toMap());
   }
 
-  /// Met à jour un élément dans une liste.
+  /// Met à jour un élément dans une liste (nouvelle version sous-collection)
   Future<void> updateElementInListe(String familleId, String superlisteId, String listeId, Tag element) async {
-    final listeRef = _db
+    final itemRef = _db
         .collection('familles')
         .doc(familleId)
         .collection('superlistes')
         .doc(superlisteId)
         .collection('listes')
-        .doc(listeId);
-    
-    // Récupérer la liste actuelle
-    final listeDoc = await listeRef.get();
-    if (listeDoc.exists) {
-      final liste = Liste.fromMap(listeId, listeDoc.data()!);
-      final updatedElements = liste.elements.map((e) {
-        if (e.id == element.id) {
-          return element;
-        }
-        return e;
-      }).toList();
-      
-      await listeRef.update({'elements': updatedElements.map((e) => e.toMap()).toList()});
-    }
+        .doc(listeId)
+        .collection('items')
+        .doc(element.id);
+    await itemRef.update(element.toMap());
   }
 
-  /// Supprime un élément d'une liste.
+  /// Supprime un élément d'une liste (nouvelle version sous-collection)
   Future<void> removeElementFromListe(String familleId, String superlisteId, String listeId, String elementId) async {
-    final listeRef = _db
+    final itemRef = _db
         .collection('familles')
         .doc(familleId)
         .collection('superlistes')
         .doc(superlisteId)
         .collection('listes')
-        .doc(listeId);
-    
-    // Récupérer la liste actuelle
-    final listeDoc = await listeRef.get();
-    if (listeDoc.exists) {
-      final liste = Liste.fromMap(listeId, listeDoc.data()!);
-      final updatedElements = liste.elements.where((e) => e.id != elementId).toList();
-      
-      await listeRef.update({'elements': updatedElements.map((e) => e.toMap()).toList()});
-    }
+        .doc(listeId)
+        .collection('items')
+        .doc(elementId);
+    await itemRef.delete();
   }
 
-  /// Récupère tous les éléments (tags) de toutes les listes d'une superliste (pour l'autocomplétion).
+  /// Récupère tous les éléments (tags) de toutes les listes d'une superliste (pour l'autocomplétion)
   Future<List<Tag>> getAllElementsOfSuperliste(String familleId, String superlisteId) async {
     final listesSnap = await _db
         .collection('familles')
@@ -393,14 +378,26 @@ class DatabaseService {
         .get();
     final List<Tag> allTags = [];
     for (final doc in listesSnap.docs) {
-      final data = doc.data();
-      if (data['elements'] != null && data['elements'] is List) {
-        for (final tagData in data['elements']) {
-          allTags.add(Tag.fromMap(tagData));
-        }
+      final itemsSnap = await doc.reference.collection('items').get();
+      for (final itemDoc in itemsSnap.docs) {
+        allTags.add(Tag.fromMap(itemDoc.data()));
       }
     }
     return allTags;
+  }
+
+  /// Récupère un stream des éléments d'une liste (pour l'UI)
+  Stream<List<Tag>> getElementsStream(String familleId, String superlisteId, String listeId) {
+    return _db
+        .collection('familles')
+        .doc(familleId)
+        .collection('superlistes')
+        .doc(superlisteId)
+        .collection('listes')
+        .doc(listeId)
+        .collection('items')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => Tag.fromMap(d.data())).toList());
   }
 
   /// Ajoute une action à l'historique d'une liste
